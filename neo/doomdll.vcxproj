@@ -1337,6 +1337,7 @@
     <ClCompile Include="renderer\jpeg-6\jquant1.c" />
     <ClCompile Include="renderer\jpeg-6\jquant2.c" />
     <ClCompile Include="renderer\jpeg-6\jutils.c" />
+    <ClCompile Include="bse\BSE_Manager.cpp" />
     <ClCompile Include="sound\snd_cache.cpp" />
     <ClCompile Include="sound\snd_decoder.cpp" />
     <ClCompile Include="sound\snd_efxfile.cpp" />

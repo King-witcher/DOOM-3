@@ -30,6 +30,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma hdrstop
 
 #include "../renderer/Image.h"
+#include "../bse/BSEInterface.h"		// RAVEN: rvBSEManager + ::bse (passed to the Quake 4 game DLL)
 
 #define	MAX_PRINT_MSG_SIZE	4096
 #define MAX_WARNING_LIST	256
@@ -2669,6 +2670,7 @@ void idCommonLocal::LoadGameDLL( void ) {
 	gameImport.declManager				= ::declManager;
 	gameImport.AASFileManager			= ::AASFileManager;
 	gameImport.collisionModelManager	= ::collisionModelManager;
+	gameImport.bse						= ::bse;					// RAVEN: Quake 4 effects system
 
 	gameExport							= *GetGameAPI( &gameImport );
 
@@ -2681,6 +2683,15 @@ void idCommonLocal::LoadGameDLL( void ) {
 
 	game								= gameExport.game;
 	gameEdit							= gameExport.gameEdit;
+
+	// --- Quake 4 port milestone 1 ---------------------------------------------
+	// The retail Quake 4 gamex86.dll exports GetGameAPI and reports
+	// GAME_API_VERSION 37, which the engine now accepts. Stop here, BEFORE
+	// game->Init(), because idGame's vtable is not yet reconciled to the Quake 4
+	// v37 layout -- calling into it would crash. Removing this halt (and doing
+	// the idGame / idCommon / idNetworkSystem ports) is the next step.
+	common->Printf( "\n=== [Quake4] retail gamex86.dll loaded; GetGameAPI version %d accepted ===\n", gameExport.version );
+	common->FatalError( "[Quake4 milestone 1] game DLL loaded and version %d accepted -- halting before game->Init (idGame vtable port pending).", gameExport.version );
 
 #endif
 

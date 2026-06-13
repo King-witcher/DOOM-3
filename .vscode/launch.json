@@ -53,6 +53,60 @@
             ],
             "console": "integratedTerminal",
             "stopAtEntry": false
+        },
+
+        //
+        // ===== Quake 4 ======================================================
+        // Run the engine against Raven's retail Quake 4 assets + game DLL.
+        //   * preLaunchTask builds the engine and deploys q4base\gamex86.dll
+        //     (GAME_API_VERSION 37) next to DOOM3.exe.
+        //   * fs_basepath -> run\q4 (a junction to the Quake 4 install) so the
+        //     engine mounts q4base\*.pk4. fs_game q4base targets Quake 4 assets.
+        //   * fs_savepath -> run\q4save keeps logs/configs out of Program Files
+        //     (qconsole.log lands in run\q4save\q4base\).
+        //   * si_pure 0 lets the engine load the loose retail game DLL.
+        // NOTE: while the port is at "milestone 1", the engine intentionally
+        // halts right after "GetGameAPI version 37 accepted" (see Common.cpp
+        // LoadGameDLL). That halt goes away as the idGame/idCommon ports land.
+        //
+        {
+            "name": "Quake 4 — Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "msbuild: quake4 (Debug)",
+            "program": "${workspaceFolder}\\build\\Win32\\Debug\\DOOM3.exe",
+            "cwd": "${workspaceFolder}\\build\\Win32\\Debug",
+            "args": [
+                "+set", "fs_basepath", "${workspaceFolder}\\run\\q4",
+                "+set", "fs_game", "q4base",
+                "+set", "fs_savepath", "${workspaceFolder}\\run\\q4save",
+                "+set", "si_pure", "0",
+                "+set", "fs_restrict", "0",
+                "+set", "developer", "1",
+                "+set", "com_allowConsole", "1",
+                "+set", "logFile", "2",
+                "+set", "r_fullscreen", "0"
+            ],
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "Quake 4 — Release",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "msbuild: quake4 (Release)",
+            "program": "${workspaceFolder}\\build\\Win32\\Release\\DOOM3.exe",
+            "cwd": "${workspaceFolder}\\build\\Win32\\Release",
+            "args": [
+                "+set", "fs_basepath", "${workspaceFolder}\\run\\q4",
+                "+set", "fs_game", "q4base",
+                "+set", "fs_savepath", "${workspaceFolder}\\run\\q4save",
+                "+set", "si_pure", "0",
+                "+set", "fs_restrict", "0",
+                "+set", "r_fullscreen", "0"
+            ],
+            "console": "integratedTerminal",
+            "stopAtEntry": false
         }
     ]
 }

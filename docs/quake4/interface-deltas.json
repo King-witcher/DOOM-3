@@ -1,0 +1,2485 @@
+[
+  {
+    "cluster": "core-framework",
+    "summary": "CRITICAL ARCHITECTURAL FINDING that reframes this whole cluster: REF (Quake4Doom) is NOT a vtable-compatible adapter to the unmodified v37 SDK gamex86.dll. REF REBUILDS the game from its OWN trimmed headers (src/game/, still GAME_API_VERSION==37) and deliberately COMMENTS OUT the v37 methods it doesn't want (e.g. idCmdSystem::ArgCompletion_Models/SetupCVarsForReloadEngine/ClearCompletion, idCVarSystem::Register(idCVarHelp*)/GetHelps/the 3 memory WriteFlaggedVariables overloads, and almost the entire idSys RAVEN expansion). Because REF compiles BOTH engine and game against those trimmed headers, REF's vtables are internally consistent but do NOT match the real SDK layout. OUR project is DLL-FIRST against the UNMODIFIED v37 SDK gamex86.dll, so we CANNOT copy REF's trimmed headers for these 4 classes -- our concrete classes (idCommonLocal/idCmdSystemLocal/idCVarSystemLocal/idSysLocal) MUST present the FULL v37 SDK vtable, including every method REF stripped, or the DLL's virtual calls land on the wrong slot and crash. Use the SDK headers (c:/code/id/quake4-sdk/source/...) as the contract, REF only as a hint for WHAT a method does/whether a stub is safe. All 4 interfaces are passed by pointer in gameImport_t (sys/common/cmdSystem/cvarSystem) and are touched during GetGameAPI + game->Init(), so all are menuCritical. Good news for boot-to-menu: the game DLL calls almost none of the *new* v37 methods on the menu path -- the new slots can be pure stubs; only their PRESENCE/ORDER matters. idCVar/idCVarHelp value classes also gained data members/flags (idCVar gained SetFlag/RemoveFlag inline, non-virtual so vtable-safe; flag enum extended to BIT(24)); idCVarHelp is a brand-new value class the SDK references via idCVarSystem::Register/GetHelps.",
+    "interfaces": [
+      {
+        "name": "idCommon",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "oursFile": "c:/code/id/DOOM-3/neo/framework/Common.h (class idCommon) + impl c:/code/id/DOOM-3/neo/framework/Common.cpp (class idCommonLocal)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/framework/Common.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/framework/Common.h (decl) + src/framework/Common.cpp (idCommonLocal, line 114)",
+        "newTypes": [
+          "saveType_t enum (ST_REGULAR/ST_QUICK/ST_AUTO/ST_CHECKPOINT) - trivial, define in header",
+          "class rvISourceControl (returned by GetSourceControl) - forward-declare only; stub returns NULL",
+          "class idInterpreter, class idProgram (params of DebuggerCheckBreakpoint) - forward-declare; stub does nothing",
+          "idLangKeyValue (returned by GetLocalizedString(int,int)) - already exists in idlib Lang code",
+          "toolFlag_t param widened to plain int in InitTool"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idCommon / Init / Shutdown / Quit / IsInitialized / Frame / GUIFrame / Async / StartupVariable",
+            "change": "unchanged-note",
+            "detail": "vtable slots 0-8 IDENTICAL to v8. No change."
+          },
+          {
+            "method": "GetUserCmdHz",
+            "change": "added",
+            "detail": "INSERTED at slot 9 (right after StartupVariable), shifting everything below. Signature: virtual int GetUserCmdHz() const. REF idCommonLocal does NOT have this as virtual (REF added it as a non-virtual inline in Common.h returning 60) -- for OURS it MUST be a real virtual in this slot; stub: return 60."
+          },
+          {
+            "method": "GetUserCmdMSec",
+            "change": "added",
+            "detail": "slot 10. virtual int GetUserCmdMSec() const. stub: return 16 (1000/60). REF has non-virtual inline returning 16."
+          },
+          {
+            "method": "GetFrameTime",
+            "change": "added",
+            "detail": "slot 11. virtual int GetFrameTime() const. stub: return com_frameTime."
+          },
+          {
+            "method": "IsRenderableGameFrame",
+            "change": "added",
+            "detail": "slot 12. virtual bool IsRenderableGameFrame() const. stub: return true."
+          },
+          {
+            "method": "SetRenderableGameFrame",
+            "change": "added",
+            "detail": "slot 13. virtual void SetRenderableGameFrame(bool). stub: empty."
+          },
+          {
+            "method": "GetErrorMessage",
+            "change": "added",
+            "detail": "slot 14. virtual const char* GetErrorMessage() const. stub: return errorMessage member (idCommonLocal already has char errorMessage[])."
+          },
+          {
+            "method": "InitTool",
+            "change": "signature-changed",
+            "detail": "v8: InitTool(const toolFlag_t tool, const idDict*). v37: InitTool(const int tool, const idDict*). Slot moved down to ~15 due to the 6 inserted getters above. Same ABI (enum passes as int) but declare with int to match. stub fine for menu."
+          },
+          {
+            "method": "IsToolActive",
+            "change": "added",
+            "detail": "slot 16. virtual bool IsToolActive() const. stub: return false (or com_editorActive)."
+          },
+          {
+            "method": "GetSourceControl",
+            "change": "added",
+            "detail": "slot 17. virtual rvISourceControl* GetSourceControl(). stub: return NULL. Forward-declare class rvISourceControl."
+          },
+          {
+            "method": "InitHeaps/ShutdownHeaps",
+            "change": "unchanged-note",
+            "detail": "Guarded by #ifdef _RV_MEM_SYS_SUPPORT which is NOT defined for us -> NOT in vtable. Do NOT add. Confirmed _RV_MEM_SYS_SUPPORT off per project decision."
+          },
+          {
+            "method": "ActivateTool / WriteConfigToFile / WriteFlaggedCVarsToFile",
+            "change": "reordered",
+            "detail": "Same signatures as v8 but pushed down by the inserted methods above. Keep as-is, order after GetSourceControl."
+          },
+          {
+            "method": "ModViewThink",
+            "change": "added",
+            "detail": "INSERTED after WriteFlaggedCVarsToFile. virtual void ModViewThink(). stub empty."
+          },
+          {
+            "method": "RunAlwaysThinkGUIs",
+            "change": "added",
+            "detail": "virtual void RunAlwaysThinkGUIs(int time). stub empty."
+          },
+          {
+            "method": "DebuggerCheckBreakpoint",
+            "change": "added",
+            "detail": "virtual void DebuggerCheckBreakpoint(idInterpreter*, idProgram*, int). stub empty. Forward-declare both classes."
+          },
+          {
+            "method": "DoingDeclValidation",
+            "change": "added",
+            "detail": "virtual bool DoingDeclValidation(). stub: return false."
+          },
+          {
+            "method": "SetCrashReportAutoSendString",
+            "change": "added",
+            "detail": "virtual void SetCrashReportAutoSendString(const char*). stub empty."
+          },
+          {
+            "method": "LoadToolsDLL / UnloadToolsDLL",
+            "change": "added",
+            "detail": "two slots, virtual void, stub empty."
+          },
+          {
+            "method": "BeginRedirect",
+            "change": "signature-changed",
+            "detail": "v8: BeginRedirect(char*, int, void(*flush)(const char*)). v37 ADDS a 4th param: bool rcon=false. ABI-different (extra stack arg) -> MUST match v37 4-arg form. Reuse D3 impl, ignore rcon."
+          },
+          {
+            "method": "EndRedirect / SetRefreshOnPrint / Printf / VPrintf / DPrintf / Warning / DWarning / PrintWarnings / ClearWarnings / Error / FatalError",
+            "change": "reordered",
+            "detail": "Same signatures, pushed down. D3 impls reusable verbatim."
+          },
+          {
+            "method": "DumpWarnings",
+            "change": "added",
+            "detail": "INSERTED after FatalError. virtual void DumpWarnings(). NOTE: in D3 DumpWarnings exists but as a PRIVATE non-virtual on idCommonLocal -- here it must be PUBLIC VIRTUAL in this slot. stub can call existing private impl."
+          },
+          {
+            "method": "GetLocalizedString(const char*,int)",
+            "change": "added",
+            "detail": "virtual const char* GetLocalizedString(const char* token, int langIndex=-1). REPLACES D3 GetLanguageDict() in the vtable. Menu/UI uses this heavily for #str_ tokens. Implement: look up in languageDict (idCommonLocal already loads languageDict). NOT a no-op stub -- menu text needs it, but returning the token itself is acceptable for first boot."
+          },
+          {
+            "method": "GetLocalizedString(int,int)",
+            "change": "added",
+            "detail": "overload: virtual const idLangKeyValue* GetLocalizedString(int index, int langIndex=-1). separate vtable slot. stub: return NULL."
+          },
+          {
+            "method": "GetNumLanguages / GetNumLocalizedStrings / GetLanguage / LanguageHasVO",
+            "change": "added",
+            "detail": "4 slots. const getters. stubs: GetNumLanguages return 1, GetNumLocalizedStrings return languageDict count, GetLanguage return \"english\", LanguageHasVO return true."
+          },
+          {
+            "method": "GetLanguageDict",
+            "change": "removed",
+            "detail": "v8 had virtual const idLangDict* GetLanguageDict() -- it is GONE from the v37 idCommon vtable (replaced by GetLocalizedString family). REF kept GetLanguageDict (REF is D3-layout) but SDK does NOT have it. Do NOT include GetLanguageDict as a virtual in the v37 layout."
+          },
+          {
+            "method": "KeysFromBinding / BindingFromKey / ButtonState / KeyState",
+            "change": "reordered",
+            "detail": "Same signatures, now sit after the localization block. D3 impls reusable."
+          },
+          {
+            "method": "GetRModeForMachineSpec / SetDesiredMachineSpec",
+            "change": "added",
+            "detail": "2 slots after KeyState. virtual int GetRModeForMachineSpec(int) const; virtual void SetDesiredMachineSpec(int). stubs: return a sane r_mode / empty."
+          },
+          {
+            "method": "IsRCon",
+            "change": "added",
+            "detail": "FINAL slot. virtual bool IsRCon() const. stub: return false."
+          }
+        ],
+        "portingNotes": "This is the highest-effort interface in the cluster. Edit neo/framework/Common.h: replace class idCommon body with an EXACT copy of the SDK v37 class idCommon (c:/code/id/quake4-sdk/source/framework/Common.h lines 170-347), keeping _RV_MEM_SYS_SUPPORT block #ifdef'd OUT, and using `int tool` for InitTool, the 4-arg BeginRedirect, and the GetLocalizedString family instead of GetLanguageDict. Add the saveType_t enum and the MemInfo class change is cosmetic (game doesn't depend on MemInfo layout across the boundary). Forward-declare rvISourceControl, idInterpreter, idProgram near the top. Then in neo/framework/Common.cpp edit class idCommonLocal to declare/override EVERY new virtual in the SAME ORDER and add trivial impls at the bottom of the file. Keep all existing D3 method bodies (Printf/Error/etc.) -- they map 1:1. Make the existing private DumpWarnings PUBLIC+virtual. Implement GetLocalizedString by delegating to languageDict (already populated by InitLanguageDict). Everything else can be one-line stubs. Verify with a static_assert on sizeof or a vtable-slot dump if possible. WATCH: a single missing/extra slot (esp. the 6 inserted getters at slots 9-14, the removed GetLanguageDict, and the localization block replacing it) will crash the DLL on first virtual call."
+      },
+      {
+        "name": "idCmdSystem",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "oursFile": "c:/code/id/DOOM-3/neo/framework/CmdSystem.h (class idCmdSystem) + impl c:/code/id/DOOM-3/neo/framework/CmdSystem.cpp (class idCmdSystemLocal, line 50)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/framework/CmdSystem.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/framework/CmdSystem.h + src/framework/CmdSystem.cpp (idCmdSystemLocal)",
+        "newTypes": [
+          "No new TYPES. New static (non-virtual) helpers ArgCompletion_GuiName/ForceModel*/StandaloneVideoName/NetDemoName exist but are STATIC -> NOT in vtable, only convenience. Only 3 NEW VIRTUALS affect layout."
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idCmdSystem / Init / Shutdown / AddCommand / RemoveCommand / RemoveFlaggedCommands / CommandCompletion / ArgCompletion / BufferCommandText / ExecuteCommandBuffer / ArgCompletion_FolderExtension",
+            "change": "unchanged-note",
+            "detail": "Slots 0-10 IDENTICAL between v8 and v37. AddCommand keeps the default-arg form. No change."
+          },
+          {
+            "method": "ArgCompletion_Models",
+            "change": "added",
+            "detail": "INSERTED at slot 11, immediately AFTER ArgCompletion_FolderExtension and BEFORE ArgCompletion_DeclName. Signature: virtual void ArgCompletion_Models(const idCmdArgs&, void(*callback)(const char*), bool strogg, bool marine). This shifts ArgCompletion_DeclName, BufferCommandArgs, SetupReloadEngine, PostReloadEngine each down by one. REF COMMENTED THIS OUT (so REF's vtable is short here) -- but OUR real SDK DLL HAS it, so we MUST add it. stub: empty (menu never force-models)."
+          },
+          {
+            "method": "ArgCompletion_DeclName / BufferCommandArgs",
+            "change": "reordered",
+            "detail": "Same signatures, each +1 slot due to ArgCompletion_Models insertion."
+          },
+          {
+            "method": "SetupCVarsForReloadEngine",
+            "change": "added",
+            "detail": "INSERTED after BufferCommandArgs, BEFORE SetupReloadEngine. Signature: virtual void SetupCVarsForReloadEngine(const idDict& dict). REF commented this out too. OURS must add it. stub: empty (no reloadEngine on menu path)."
+          },
+          {
+            "method": "SetupReloadEngine / PostReloadEngine",
+            "change": "reordered",
+            "detail": "Same signatures, shifted down by the two insertions above."
+          },
+          {
+            "method": "ClearCompletion",
+            "change": "added",
+            "detail": "INSERTED as the LAST virtual, after PostReloadEngine. Signature: virtual void ClearCompletion(). REF commented out. OURS must add. stub: empty."
+          },
+          {
+            "method": "ArgCompletion_Boolean..ArgCompletion_DemoName (statics)",
+            "change": "unchanged-note",
+            "detail": "All STATIC -> not in vtable. The v37 header adds several new static inline helpers (GuiName, ForceModel*, StandaloneVideoName, NetDemoName) that delegate to ArgCompletion_Models/FolderExtension; copy them into the header for source-compat but they don't affect ABI."
+          }
+        ],
+        "portingNotes": "Lowest-effort of the four. Edit neo/framework/CmdSystem.h class idCmdSystem to insert EXACTLY 3 new pure virtuals in the right slots: ArgCompletion_Models (after ArgCompletion_FolderExtension), SetupCVarsForReloadEngine (after BufferCommandArgs), ClearCompletion (after PostReloadEngine). Match SDK header verbatim (c:/code/id/quake4-sdk/source/framework/CmdSystem.h lines 71-88). Then in neo/framework/CmdSystem.cpp add the 3 overrides to class idCmdSystemLocal in the SAME ORDER and give them trivial bodies. Optionally add the new static ArgCompletion_* inline helpers for source-compat. Do NOT follow REF here -- REF commented these out; our SDK DLL's vtable expects them present. After this the idCmdSystem vtable is binary-identical to v37."
+      },
+      {
+        "name": "idCVarSystem",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "oursFile": "c:/code/id/DOOM-3/neo/framework/CVarSystem.h (classes idCVar, idCVarSystem) + impl c:/code/id/DOOM-3/neo/framework/CVarSystem.cpp (class idCVarSystemLocal)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/framework/CVarSystem.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/framework/CVarSystem.h + src/framework/CVarSystem.cpp (idCVarSystemLocal)",
+        "newTypes": [
+          "cvarHelpCategory_t enum (CVARHELP_ALL/GAME/RENDERER/PHYSICS/SOUND/AI) - define in header",
+          "class idCVarHelp - BRAND NEW value class (SDK CVarSystem.h lines 204-244). Has non-virtual ctors/getters + static RegisterStatics(); referenced by idCVarSystem::Register(const idCVarHelp*) and GetHelps(). REF DELETED it; we must add the full class so the DLL's idCVarHelp statics register. Constructor inline auto-registers into staticCVarHelps list (SDK lines 376-412).",
+          "cvarFlags_t enum extended: v8 stops at CVAR_MODIFIED=BIT(18); v37 adds CVAR_INFO(19), CVAR_NORESET(20), CVAR_CASE_SENSITIVE(21), CVAR_SPECIAL_CONCAT(22), CVAR_STRIPTRAILING(23), CVAR_REPEATERINFO(24). Must extend the enum -- the game DLL passes these flag bits."
+        ],
+        "methodDeltas": [
+          {
+            "method": "idCVar (value class)",
+            "change": "signature-changed",
+            "detail": "NON-VIRTUAL additions only: SetFlag(cvarFlags_t) and RemoveFlag(cvarFlags_t) inline methods (SDK lines 134-135). idCVar's VIRTUAL layout (dtor + InternalSet{String,Bool,Integer,Float}) is UNCHANGED, so idCVar vtable is compatible. The extra inline methods don't touch ABI. Member layout unchanged. Safe."
+          },
+          {
+            "method": "~idCVarSystem / Init / Shutdown / IsInitialized / Register(idCVar*)",
+            "change": "unchanged-note",
+            "detail": "Slots 0-4 identical to v8."
+          },
+          {
+            "method": "Register(const idCVarHelp*)",
+            "change": "added",
+            "detail": "INSERTED at slot 5, immediately after Register(idCVar*), BEFORE Find. virtual void Register(const idCVarHelp*). REF commented this out; OURS must add it. stub: empty (or store in a list). Requires idCVarHelp type to exist."
+          },
+          {
+            "method": "GetHelps",
+            "change": "added",
+            "detail": "INSERTED at slot 6, after Register(idCVarHelp*), before Find. virtual idCVarHelp* GetHelps(cvarHelpCategory_t). stub: return NULL."
+          },
+          {
+            "method": "Find / SetCVarString / SetCVarBool / SetCVarInteger / SetCVarFloat / GetCVarString / GetCVarBool / GetCVarInteger / GetCVarFloat / Command / CommandCompletion / ArgCompletion / SetModifiedFlags / GetModifiedFlags / ClearModifiedFlags / ResetFlaggedVariables / RemoveFlaggedAutoCompletion",
+            "change": "reordered",
+            "detail": "All same signatures, each shifted DOWN by 2 slots due to the Register(idCVarHelp*)+GetHelps insertion. D3 impls reusable verbatim."
+          },
+          {
+            "method": "WriteFlaggedVariables(int,const char*,idFile*)",
+            "change": "reordered",
+            "detail": "Same signature (const, idFile* overload), shifted down. This is the FIRST of what becomes an overload set in v37."
+          },
+          {
+            "method": "WriteFlaggedVariables(int,const char*,byte*,unsigned int)",
+            "change": "added",
+            "detail": "INSERTED after the idFile* overload. virtual unsigned int WriteFlaggedVariables(int flags,const char* setCmd,byte* buf,unsigned int bufSize) const. REF commented out the memory overloads. OURS must add. stub: return 0."
+          },
+          {
+            "method": "ApplyFlaggedVariables",
+            "change": "added",
+            "detail": "virtual void ApplyFlaggedVariables(byte* buf, unsigned int bufSize). stub empty."
+          },
+          {
+            "method": "WriteFlaggedVariables(int) -> idStr",
+            "change": "added",
+            "detail": "virtual idStr WriteFlaggedVariables(int flags) const. RETURNS idStr BY VALUE across the DLL boundary -- match exactly (hidden return-pointer ABI). stub: return idStr()/empty."
+          },
+          {
+            "method": "MoveCVarsToDict / SetCVarsFromDict",
+            "change": "reordered",
+            "detail": "FINAL two slots, same signatures, shifted down. D3 impls reusable."
+          }
+        ],
+        "portingNotes": "Edit neo/framework/CVarSystem.h: (1) extend cvarFlags_t with the 6 new bits up to BIT(24). (2) Add cvarHelpCategory_t enum and the full idCVarHelp class + its inline ctor/RegisterStatics (copy SDK lines 194-244 and 374-413) -- needed because the SDK game DLL instantiates idCVarHelp statics that call cvarSystem->Register(idCVarHelp*). (3) In class idCVarSystem insert the 2 help virtuals (Register(const idCVarHelp*), GetHelps) right after Register(idCVar*), and insert the 3 memory WriteFlaggedVariables overloads + ApplyFlaggedVariables right after the existing idFile* WriteFlaggedVariables. (4) Add SetFlag/RemoveFlag inline to idCVar (non-virtual, safe). Then in neo/framework/CVarSystem.cpp add all 5 new overrides to idCVarSystemLocal in the SAME ORDER with trivial bodies, and provide idCVarHelp::staticCVarHelps/Tail static defs + a real-or-stub Register(const idCVarHelp*) (store in list or ignore). Do NOT follow REF (it stripped all of these). The idStr-by-value return of WriteFlaggedVariables(int) is the one ABI-subtle stub -- keep its signature exact."
+      },
+      {
+        "name": "idSys",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "oursFile": "c:/code/id/DOOM-3/neo/sys/sys_public.h (class idSys, line 537) + impl: idSysLocal in neo/sys/win32/win_main.cpp (idSysLocal sysLocal)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/sys/sys_public.h (class idSys, line 729)",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/sys/sys_public.h (line 537) + src/sys/sys_local.h / win_main.cpp (idSysLocal)",
+        "newTypes": [
+          "No new struct/class TYPES needed; new params use FILE*, unsigned long, unsigned short, size_t, void* (HWND-as-void*). sysEvent_t already exists. The SDK header references real Win32 window/file ops but via void*/FILE* so no new headers required."
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idSys",
+            "change": "added",
+            "detail": "v8 idSys has NO virtual destructor (D3 idSys starts directly at DebugPrintf). v37 SDK ADDS virtual ~idSys() as slot 0, pushing EVERY method down by one slot. This alone shifts the whole vtable. Must add a virtual dtor. (Note: REF did NOT add the dtor -- REF idSys is pure D3 + Milliseconds; another proof REF != SDK layout.)"
+          },
+          {
+            "method": "DebugPrintf / DebugVPrintf / GetClockTicks / ClockTicksPerSecond / GetProcessorId / GetProcessorString / FPU_GetState / FPU_StackIsEmpty / FPU_SetFTZ / FPU_SetDAZ",
+            "change": "reordered",
+            "detail": "Same signatures; all shift down by 1 because of the inserted virtual dtor at slot 0. D3 impls reusable."
+          },
+          {
+            "method": "FPU_SetPrecision",
+            "change": "added",
+            "detail": "INSERTED after FPU_SetDAZ (where v8 had FPU_EnableExceptions). virtual void FPU_SetPrecision(int flags). NOTE v8 had FPU_EnableExceptions(int) in roughly this position; v37 has FPU_SetPrecision INSTEAD here -- different name, same slot region. Provide FPU_SetPrecision. stub empty (or set FPU control word). The game DLL does not call it on menu path."
+          },
+          {
+            "method": "FPU_EnableExceptions",
+            "change": "removed",
+            "detail": "v8's FPU_EnableExceptions(int) is NOT in the v37 idSys vtable. Do not include it as a virtual in the v37 layout (keep impl internal if needed elsewhere)."
+          },
+          {
+            "method": "LockMemory / UnlockMemory / GetCallStack / GetCallStackStr / GetCallStackCurStr / ShutdownSymbols",
+            "change": "reordered",
+            "detail": "Same signatures, shifted. D3 impls reusable."
+          },
+          {
+            "method": "DLL_Load / DLL_GetProcAddress / DLL_Unload",
+            "change": "signature-changed",
+            "detail": "v8: int DLL_Load / void* DLL_GetProcAddress(int,...) / void DLL_Unload(int). SDK v37 (this 32-bit SDK build) keeps INT handle (int DLL_Load, int handle params) -- confirmed: SDK sys_public.h uses `int` (only REF widened to intptr_t for x64). For OUR 32-bit build keep int handles to match the SDK. D3 impls reusable verbatim."
+          },
+          {
+            "method": "DLL_GetFileName / GenerateMouseButtonEvent / GenerateMouseMoveEvent",
+            "change": "reordered",
+            "detail": "Same signatures, shifted by the dtor + FPU change. D3 impls reusable. GenerateMouse* ARE called by the SDK game (Player.cpp) but only in gameplay, not menu."
+          },
+          {
+            "method": "MapKey",
+            "change": "added",
+            "detail": "INSERTED after GenerateMouseMoveEvent (this begins a large RAVEN block ABSENT in D3). virtual int MapKey(unsigned long lParam, unsigned short wParam). stub: return 0."
+          },
+          {
+            "method": "AddKeyPress / GetNumKeyPresses / GetKeyPress",
+            "change": "added",
+            "detail": "3 slots. virtual void AddKeyPress(int,bool); int GetNumKeyPresses(); bool GetKeyPress(const int,int&,bool&). stubs: empty / return 0 / return false."
+          },
+          {
+            "method": "CreateWindowEx / GetDC / ReleaseDC / ShowWindow / UpdateWindow / IsWindowVisible / SetForegroundWindow / SetFocus / DestroyWindow",
+            "change": "added",
+            "detail": "9 window-op slots, all using void* handles. stubs: return NULL / empty / return false. The SDK game DLL does not call these on the boot-to-menu path (engine owns the window). Just occupy the slots."
+          },
+          {
+            "method": "ShowConsole / UpdateConsole / SetConsoleName / IsAppActive / Milliseconds / InitInput / ShutdownInput / GenerateEvents / GrabMouseCursor",
+            "change": "added",
+            "detail": "9 slots. Mostly engine-internal. virtual int Milliseconds() here too (REF put Milliseconds at the very end instead -- mismatch). stubs OK; Milliseconds should return Sys_Milliseconds() if anything calls it. IsAppActive const -> return true."
+          },
+          {
+            "method": "FOpen / FPrintf / FTell / FSeek / FClose / FRead / FWrite / FileTimeStamp / FEof / FGets / FFlush / SetVBuf",
+            "change": "added",
+            "detail": "12 stdio-wrapper slots returning FILE*/int/etc. stubs may delegate to real fopen/fread/etc. or return NULL/0. Not on menu path. Occupy the slots in exact order."
+          },
+          {
+            "method": "OpenURL / StartProcess",
+            "change": "reordered",
+            "detail": "Present in v8 too (slots near end there). In v37 they sit AFTER the big stdio block. Same signatures; shift to the v37 position. D3 impls reusable."
+          },
+          {
+            "method": "GetGUID",
+            "change": "added",
+            "detail": "FINAL slot. virtual int GetGUID(char* buf, int buflen). stub: write empty string, return 0."
+          }
+        ],
+        "portingNotes": "Highest slot-count delta. idSys is NOT in REF's adapted form -- REF kept D3 layout, so you cannot crib REF here; use the SDK header verbatim (c:/code/id/quake4-sdk/source/sys/sys_public.h lines 729-807). Edit neo/sys/sys_public.h: replace class idSys with the SDK v37 body EXACTLY (add the virtual ~idSys() FIRST, swap FPU_EnableExceptions->FPU_SetPrecision, add the entire RAVEN block: MapKey/key-press/window-ops/console/input/stdio/GetGUID). Keep DLL_* handles as `int` (this SDK is 32-bit). Then edit the idSysLocal class (neo/sys/win32/win_main.cpp, and its decl) to override every new virtual IN ORDER with trivial bodies; reuse the existing D3 win_main implementations for the methods that already exist (DebugPrintf, GetClockTicks, DLL_*, GenerateMouse*, OpenURL, StartProcess, etc.) -- just re-order. Most new RAVEN methods can be one-line stubs because the boot-to-menu path doesn't call them; only their presence/order matters. CRITICAL: the inserted virtual dtor at slot 0 shifts the ENTIRE vtable -- forgetting it mis-aligns every subsequent call. Verify the class compiles with no remaining pure-virtuals (idSysLocal must override all)."
+      }
+    ]
+  },
+  {
+    "cluster": "filesystem-decl",
+    "summary": "Two interface classes analyzed: idFileSystem (framework/FileSystem.h) and idDeclManager (framework/declManager.h), plus the decl* type enum/classes they expose. Header locations: OURS = c:/code/id/DOOM-3/neo/framework/{FileSystem.h,DeclManager.h}; SDK v37 = c:/code/id/quake4-sdk/source/framework/{FileSystem.h,declManager.h}; REF = c:/code/id/_q4ref/Quake4Doom/src/framework/{FileSystem.h,declManager.h} with local impls in FileSystem.cpp / DeclManager.cpp.\n\nKEY GROUND TRUTH (verified from SDK game.vcproj + Game_local.cpp #ifdefs): the prebuilt v37 gamex86.dll is compiled with PreprocessorDefinitions = _DEBUG/NDEBUG,_WINDOWS,GAME_DLL,Q4SDK only. RV_BINARYDECLS, RV_SINGLE_DECL_FILE, _XENON, _RV_MEM_SYS_SUPPORT are all UNDEFINED. So the canonical v37 vtables exclude every #ifdef RV_*/#if _XENON block. RegisterDeclType uses the single-allocator signature; the StartLoadingDecls/FinishLoadingDecls/LoadDeclsFromFile/WriteDeclFile/FlushDecls block is ABSENT; the trailing SetLightMaterialList/SetEntityMaterialList/PurgeType block is ABSENT. This is the exact layout to mirror.\n\nREF is the porting template but is NOT vtable-identical to the SDK: REF builds its own DLL from its own modified declManager.h, so REF dropped SetInsideLoad/GetInsideLoad and the tools tail (GetNewName/ListDeclSummary/RemoveDeclFile/Validate/AllocateDecl) and renamed RegisterDeclFolderWrapper->RegisterDeclFolder. OUR project loads the UNMODIFIED SDK DLL, so we must match the SDK layout (which DOES include SetInsideLoad/GetInsideLoad, RegisterDeclFolderWrapper, GetNewName, AllocateDecl, etc.) — verified because the SDK game corpus calls declManager->SetInsideLoad (8x), GetInsideLoad (4x), RegisterDeclFolderWrapper (14x during Init), AllocateDecl (4x), GetNewName (2x), and fileSystem->SetIsFileLoadingAllowed (8x) and GetNewFileMemory (2x). REF's stub bodies ({return false;}/{}) still tell us WHAT a trivial stub looks like; we just need MORE slots than REF kept.\n\nBoth interfaces are heavily menuCritical: declManager->Init + RegisterDeclType/RegisterDeclFolderWrapper + SetInsideLoad run during game->Init(), and FindMaterial/FindSkin/FindSound/FindType are hit constantly during menu GUI setup; fileSystem ReadFile/ListFiles/OpenFileRead/GetNumMaps/GetMapDecl/SetIsFileLoadingAllowed run during Init and main-menu population.\n\nNew rv* types exposed only as opaque return pointers: rvDeclMatType, rvDeclLipSync, rvDeclPlayback, rvDeclEffect, rvDeclPlayerModel, rvDeclPlaybackData (REF defines all in framework/decl{MatType,LipSync,Playback}.h + DeclPlayerModel.h). Forward declarations suffice for vtable; real bodies not needed for boot-to-menu. The declType_t enum itself differs (Quake4 inserts DECL_MATERIALTYPE/LIPSYNC/PLAYBACK/EFFECT/CAMERADEF after DECL_MODELDEF and removes DECL_FX/DECL_PARTICLE) and must be ported since values cross the DLL boundary. FindDLL is byte-identical across OURS/REF (sys->DLL_GetFileName -> gamex86.dll); binary.conf is the unchanged D3 pure-mode checksum file and has NO vtable impact.",
+    "interfaces": [
+      {
+        "name": "idFileSystem",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/framework/FileSystem.h (impl c:/code/id/_q4ref/Quake4Doom/src/framework/FileSystem.cpp)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/framework/FileSystem.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/framework/FileSystem.h (impl c:/code/id/DOOM-3/neo/framework/FileSystem.cpp, idFileSystemLocal at line 340)",
+        "newTypes": [
+          "proxyDownload_t (struct, SDK FileSystem.h ~line 92)",
+          "MAX_GAMEPAK_PER_OS (const int = 10, SDK FileSystem.h line 33)",
+          "backgroundDownload_t gains numSegments + proxyDownload_t proxy fields (SDK FileSystem.h ~line 170; ABI of struct changes but only passed by the engine, not constructed by the menu)"
+        ],
+        "portingNotes": "Slots 0..21 (dtor through WriteFile) are IDENTICAL to D3/OURS. The v37 divergence is a block of Raven methods INSERTED between WriteFile (slot 21) and RemoveFile, then RemoveFile's signature changes, then more insertions later. Concretely, after WriteFile insert in THIS order: (1) RemoveFile gains a 2nd defaulted arg `const char *basePath = \"fs_savepath\"` [signature-changed, still 1 slot], (2) RemoveExplicitFile(const char*OSPath)->int [ADDED], (3) SetIsFileLoadingAllowed(bool) [ADDED], (4) GetIsFileLoadingAllowed() const->bool [ADDED], (5) SetAssetLogName(const char*) [ADDED], (6) WriteAssetLog() [ADDED], (7) ClearAssetLog() [ADDED], (8) GetAssetLogName()->const char* [ADDED], (9) GetNewFileMemory()->idFile* [ADDED], (10) GetNewFilePermanent()->idFile* [ADDED]. Then OpenFileRead..AddToReadCount are unchanged EXCEPT OpenFileWrite gains a 3rd defaulted arg `bool ASCII=false` [signature-changed]. SetPureServerChecksums/GetPureServerChecksums signatures change (gamePakChecksum becomes int[MAX_GAMEPAK_PER_OS], extra int* params) and GetOSMask returns unsigned int instead of int and ReadFile's timestamp param is `unsigned*` not `ID_TIME_T*` [all signature-changed, same slot count]. After ClearDirCache, OURS' D3 tail (HasD3XP/RunningD3XP/CopyFile/ValidateDownloadPakForChecksum/MakeTemporaryFile/AddZipFile) is REPLACED by the v37 tail: RelativeDownloadPathForChecksum [ADDED], ValidateDownloadPakForChecksum [kept], ValidateDownloadPakForRelativePath [ADDED], MakeTemporaryFile [kept], AddZipFile [kept], FindFile(const char*) [signature-changed: drops the scheduleAddons arg], GetNumMaps [kept], GetMapDeclIndex(const char*) [ADDED], GetMapDecl(int) [kept], GetMapDecl(const char*) [ADDED overload], FindMapScreenshot [kept], then ADDED: OSpathToImportPath, OpenImportFileRead, CopyOSFile(const char*,const char*), CopyOSFile(idFile*,const char*), WriteDemoHeader, ReadDemoHeader, IsRunningWithRestrictions, ReadCodePakLists(const idBitMsg&), HaveCodePakLists() const, SelectDefaultLanguage, ClearAddonList. Note HasD3XP/RunningD3XP/CopyFile(from,to)/FilenameCompare from OURS are GONE in v37. EDIT neo/framework/FileSystem.h: replace the idFileSystem class body with the SDK v37 declaration verbatim (omit the _XENON backgroundDownload variant and the #ifdef _XENON pak methods since DLL is non-Xenon). EDIT neo/framework/FileSystem.cpp idFileSystemLocal: keep existing impls for surviving methods, rename/adjust signatures, and add trivial stubs for all ADDED methods (SetIsFileLoadingAllowed/GetIsFileLoadingAllowed: bool flag like REF; asset-log methods: empty/return\"\"; GetNewFileMemory/GetNewFilePermanent: `return new idFile_Memory()` / `return NULL`; demo + codepak + import + downloadpath methods: return -1/0/false/empty as no-ops; SelectDefaultLanguage/ClearAddonList/ReadCodePakLists: empty). REF only added SetIsFileLoadingAllowed inline (its DLL was rebuilt to match its own header) so REF is NOT a complete slot template here — use the SDK header as the authority and REF FileSystem.cpp only for the surviving D3 method bodies."
+      },
+      {
+        "name": "idDeclManager",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/framework/declManager.h (impl c:/code/id/_q4ref/Quake4Doom/src/framework/DeclManager.cpp, idDeclManagerLocal at line 196)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/framework/declManager.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/framework/DeclManager.h (impl c:/code/id/DOOM-3/neo/framework/DeclManager.cpp, idDeclManagerLocal at line 176)",
+        "newTypes": [
+          "rvDeclMatType (REF framework/declMatType.h)",
+          "rvDeclLipSync (REF framework/declLipSync.h)",
+          "rvDeclPlayback (REF framework/declPlayback.h)",
+          "rvDeclEffect (REF declManager.h fwd-decl; class in bse/BSE.h)",
+          "rvDeclPlayerModel (REF framework/DeclPlayerModel.h)",
+          "rvDeclPlaybackData (fwd-declared inline as class rvDeclPlaybackData*; full def REF framework/declPlayback.h)",
+          "rvDeclGuide (REF declManager.h line 134) and rvGuideTemplate (used by REF local only, not in vtable)",
+          "declType_t enum CHANGED: Quake4 inserts DECL_MATERIALTYPE,DECL_LIPSYNC,DECL_PLAYBACK,DECL_EFFECT,DECL_CAMERADEF after DECL_MODELDEF and drops DECL_FX/DECL_PARTICLE, adds DECL_PLAYER_MODEL before DECL_MAX_TYPES"
+        ],
+        "portingNotes": "This is the biggest vtable rewrite in the cluster. Build the OUR idDeclManager body to EXACTLY match SDK declManager.h with RV_BINARYDECLS / RV_SINGLE_DECL_FILE / _XENON all OFF, giving this slot order after the dtor: SetInsideLoad(bool) [ADDED slot0-after-dtor], GetInsideLoad()->bool [ADDED], Init, Shutdown, Reload, BeginLevelLoad, EndLevelLoad, RegisterDeclType(name,type,allocator) [single-allocator form, unchanged sig], RegisterDeclFolderWrapper(folder,ext,type,bool unique=false,bool norecurse=false) [REPLACES D3 RegisterDeclFolder — name+signature changed], GetChecksum, GetNumDeclTypes, GetDeclNameFromType, GetDeclTypeFromName, FindType(type,name,makeDefault=true,bool noCaching=false) [signature-changed: 4th arg added], FindDeclWithoutParsing, ReloadFile, GetNumDecls, DeclByIndex, ListType, PrintType, CreateNewDecl, RenameDecl, MediaPrint, WritePrecacheCommands, ParseGuides [ADDED], ShutdownGuides [ADDED], EvaluateGuide(idStr&,idLexer*,idStr&) [ADDED], EvaluateInlineGuide(idStr&,idStr&) [ADDED], FindMaterial, FindTable, FindSkin, FindSound, FindMaterialType [ADDED], FindLipSync [ADDED], FindPlayback [ADDED], FindEffect [ADDED], MaterialByIndex, TableByIndex, SkinByIndex, SoundByIndex, MaterialTypeByIndex [ADDED], LipSyncByIndex [ADDED], PlaybackByIndex [ADDED], EffectByIndex [ADDED], StartPlaybackRecord [ADDED], SetPlaybackData [ADDED], GetPlaybackData [ADDED], FinishPlayback [ADDED], GetNewName(type,base)->idStr [ADDED], GetDeclTypeName(type)->const char* [ADDED], ListDeclSummary(const idCmdArgs&)->size_t [ADDED], RemoveDeclFile(const char*) [ADDED], Validate(type,iIndex,idStr&)->bool [ADDED], AllocateDecl(type)->idDecl* [ADDED]. IMPORTANT vs REF: REF OMITS SetInsideLoad/GetInsideLoad at the front and OMITS the GetNewName/GetDeclTypeName/ListDeclSummary/RemoveDeclFile/Validate/AllocateDecl tail (commented out) and renamed RegisterDeclFolderWrapper->RegisterDeclFolder — DO NOT copy REF's trimming; the unmodified SDK DLL calls SetInsideLoad/GetInsideLoad/RegisterDeclFolderWrapper/AllocateDecl/GetNewName so those slots MUST exist and be in SDK order. Note FindTable/TableByIndex are also NEW vs OURS-D3 (D3 had no FindTable in the manager). EDIT neo/framework/DeclManager.h: (a) port the declType_t enum to the Quake4 values, (b) add idDeclBase::GetCompressedLength + SetReferencedThisLevel + Validate + RebuildTextSource and change idDeclBase::Parse to 3-arg (text,len,bool noCaching) and idDecl::Parse wrapper to call base->Parse(text,len,false) — REF DeclManager.cpp line 240 shows this exact wrapper; (c) replace idDeclManager body with the SDK v37 layout above; (d) add forward decls: class idDeclTable; class rvDeclMatType; class rvDeclLipSync; class rvDeclPlayback; class rvDeclEffect; class rvDeclPlayerModel;. EDIT neo/framework/DeclManager.cpp idDeclManagerLocal: implement real bodies for Init/Shutdown/Reload/RegisterDeclType/GetChecksum/Find*/...ByIndex (mostly existing D3 code), and add trivial stubs (copy REF): SetInsideLoad/GetInsideLoad -> set/return insideLevelLoad bool; RegisterDeclFolderWrapper -> forward to existing RegisterDeclFolder ignoring unique/norecurse; ParseGuides/ShutdownGuides empty, EvaluateGuide/EvaluateInlineGuide return false; FindMaterialType/FindLipSync/FindPlayback/FindEffect -> static_cast<...>(FindType(DECL_*,name,makeDefault)) exactly as REF DeclManager.cpp lines 1820-1833; the *ByIndex variants -> DeclByIndex; StartPlaybackRecord{} / SetPlaybackData/GetPlaybackData/FinishPlayback return false (REF stubs); GetNewName return idStr(); GetDeclTypeName return GetDeclNameFromType; ListDeclSummary return 0; RemoveDeclFile empty; Validate return true; AllocateDecl -> allocate via the registered allocator for the type (needed: SDK DLL calls it). FindType's extra noCaching arg can be ignored by the body. The rv* decl classes only need to EXIST as types behind pointers — for boot-to-menu register them as plain idDecl subclasses (or skip registering DECL_MATERIALTYPE/LIPSYNC/PLAYBACK/EFFECT and let FindType makeDefault return a default idDecl); REF actually registers them via RegisterDeclFolder at DeclManager.cpp lines 978-981."
+      }
+    ]
+  },
+  {
+    "cluster": "renderer",
+    "summary": "CRITICAL META-FINDING: The REF tree (Quake4Doom) is NOT a valid layout reference for this cluster. REF edits the SDK headers themselves (commenting out dozens of virtuals: DrawStretchCopy, BeginFrame(viewDef), special-effects, TakeScreenshot, GetSurfaceMask, SetHasSky, etc.) and recompiles ITS game against those trimmed headers. Our constraint is DLL-first against the UNMODIFIED v37 SDK headers, so our local renderer classes must reproduce the SDK vtable EXACTLY -- including every method REF deleted. Use REF only for method *implementations*, never for slot order.\n\nThe SDK DLL is built with Q4SDK + GAME_DLL defined and (per quake4-sdk/source/idlib/precompiled.h, the Windows block) _RV_MEM_SYS_SUPPORT NOT defined, Q4SDK_MD5R DEFINED (so the #ifdef Q4SDK_MD5R branch is active), _MD5R_SUPPORT/_MD5R_WRITE_SUPPORT NOT defined, _XENON NOT defined, _CONSOLE undef'd, ENABLE_INTEL_SMP defined (affects glconfig_t struct only, not vtables). These flags fully determine the effective SDK vtables below.\n\nidRenderSystem: insert DeferredInit at slot 1 (right after dtor), insert GetValidModes after IsOpenGLRunning, RemoveAllModelReferences after FreeRenderWorld, the Q4SDK_MD5R pair ExportMD5R+CopyPrimBatchTriangles before RegisterFont, TrackTextureUsage before RegisterFont, DrawStretchPic(verts...) loses its min/max args, add DrawStretchCopy, DrawTinyChar/DrawTinyStringExt before DrawSmallChar, BeginFrame(viewDef) overload + RenderLightFrustum + LightProjectionMatrix + ToggleSmpFrame + 3 special-effect methods after BeginFrame, EndFrame gains 2 args, TakeJPGScreenshot+TakeScreenshot(basePath) replace the single TakeScreenshot, CaptureRenderToMemory after CaptureRenderToImage, DebugGraph+ShowDebugGraph at the tail. PrintMemInfo takes MemInfo* (not MemInfo_t*).\n\nidRenderWorld: GetRenderLight is followed by 11 inserted Raven methods (WriteRenderLight, ReadRenderLight, AddEffectDef, UpdateEffectDef, StopEffectDef, GetEffectDef, FreeEffectDef, EffectDefHasSound, PushMarkedDefs, ClearMarkedDefs, FreeDefs, RemoveAllModelReferences) -- a massive slot shift. RenderScene gains renderFlags arg; HasSkybox/FindVisibleAreas/RenderPortalFades/WorldToScreen x2 inserted after it. GetPortals + GetPortal(out-param) inserted before the by-value GetPortal. ProcessDemoCommand gains portalSkyRenderView arg. DebugClearLines renamed to DebugClear; DebugBounds gains depthTest and is followed by MemorySummary/ShowDebugLines/ShowDebugPolygons/ShowDebugText/DebugFOV; DebugClearPolygons is REMOVED.\n\nidRenderModelManager: Reset inserted after Shutdown; a block of 11 tool methods (AllocStaticTriSurf...CreateLightDef/FreeLightDef + CheckModel(idRenderModel*)) inserted after CheckModel(const char*); PrintMemInfo gains a trailing ListModelSummary. PrintMemInfo arg type MemInfo* vs our MemInfo_t*.\n\nidRenderModel: SDK adds DampenFluidGrid as the FIRST vtable slot (declared public, non-pure, before dtor) -- shifts EVERYTHING. ~idRenderModel is out-of-line (non-inline) in SDK. InitEmptyFromArgs inserted after InitEmpty; HasCollisionSurface inserted after DepthHack; InstantiateDynamicModel gains surfMask arg; ReadFromDemo/WriteToDemo renamed (ours: ReadFromDemoFile/WriteToDemoFile) and 4 methods appended (GetSurfaceMask, SetHasSky, GetHasSky, SetViewEntity). Timestamp returns unsigned int (ours: ID_TIME_T).\n\nidMaterial: inherits idDecl; the idDecl base vtable itself changes (Parse gains bool noCaching; GetCompressedLength, SetReferencedThisLevel, RebuildTextSource, Validate inserted) -- that base layout is owned by the decl/framework cluster but idMaterial MUST match it. idMaterial's own virtual tail: Parse signature changes to (text,len,noCaching); adds RebuildTextSource (inline {return false;}) and Validate overrides. RV_BINARYDECLS is NOT defined so the Serializable base is absent (good). New referenced type rvDeclMatType (also surfaces in modelTrace_t.materialType in RenderWorld.h).",
+    "interfaces": [
+      {
+        "name": "idRenderSystem",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "oursFile": "c:/code/id/DOOM-3/neo/renderer/RenderSystem.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/renderer/RenderSystem.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/renderer/RenderSystem.h (MODIFIED - not layout-faithful; impls in tr_local.h / RenderSystem_init.cpp)",
+        "newTypes": [
+          "ESpecialEffectType (enum, SDK RenderSystem.h L175-181)",
+          "TextureTrackCommand (nested enum in idRenderSystem, SDK L272-276)",
+          "viewDef_s (fwd-decl; ours has it in tr_local.h)",
+          "MemInfo (SDK uses 'MemInfo' class; ours uses typedef 'MemInfo_t')"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idRenderSystem",
+            "change": "unchanged-note",
+            "detail": "slot 0, inline dtor, same both."
+          },
+          {
+            "method": "DeferredInit",
+            "change": "added",
+            "detail": "SDK slot 1 (immediately after dtor): 'virtual void DeferredInit(void){}'. NON-PURE inline. Shifts ALL following slots by 1. Stub: empty body."
+          },
+          {
+            "method": "Init",
+            "change": "unchanged-note",
+            "detail": "now slot 2. menu-critical (game->Init path indirectly; engine calls before menu)."
+          },
+          {
+            "method": "Shutdown",
+            "change": "unchanged-note",
+            "detail": "unchanged."
+          },
+          {
+            "method": "FlushLevelImages",
+            "change": "unchanged-note",
+            "detail": "GUARDED by _RV_MEM_SYS_SUPPORT which is NOT defined for the SDK DLL build -> NOT in vtable. Do NOT add it."
+          },
+          {
+            "method": "InitOpenGL/ShutdownOpenGL/IsOpenGLRunning",
+            "change": "unchanged-note",
+            "detail": "same order, same sigs."
+          },
+          {
+            "method": "GetValidModes",
+            "change": "added",
+            "detail": "SDK inserts after IsOpenGLRunning: 'virtual void GetValidModes(idStr&Mode4x3Text, idStr&Mode4x3Values, idStr&Mode16x9Text, idStr&Mode16x9Values, idStr&Mode16x10Text, idStr&Mode16x10Values)=0'. NOTE REF commented this out but the unmodified SDK has it -> it IS a vtable slot. Stub: clear all out strs."
+          },
+          {
+            "method": "IsFullScreen/GetScreenWidth/GetScreenHeight",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "AllocRenderWorld/FreeRenderWorld",
+            "change": "unchanged-note",
+            "detail": "same sigs."
+          },
+          {
+            "method": "RemoveAllModelReferences",
+            "change": "added",
+            "detail": "SDK inserts after FreeRenderWorld: 'virtual void RemoveAllModelReferences(idRenderModel*model)=0'. (REF commented it out -> ignore REF.) Stub OK for menu."
+          },
+          {
+            "method": "BeginLevelLoad/EndLevelLoad",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "ExportMD5R",
+            "change": "added",
+            "detail": "Q4SDK_MD5R branch ACTIVE: 'virtual void ExportMD5R(bool compressed)=0' inserted here (after EndLevelLoad). Empty stub."
+          },
+          {
+            "method": "CopyPrimBatchTriangles",
+            "change": "added",
+            "detail": "Q4SDK_MD5R branch: 'virtual void CopyPrimBatchTriangles(idDrawVert*destDrawVerts, glIndex_t*destIndices, void*primBatchMesh, void*silTraceVerts)=0'. Game DLL DOES call this (BrittleFracture.cpp:1159). For menu a stub suffices; real impl needed only when fracture geometry is built."
+          },
+          {
+            "method": "TrackTextureUsage",
+            "change": "added",
+            "detail": "_CONSOLE undef -> present: 'virtual void TrackTextureUsage(TextureTrackCommand command,int frametime=0,const char*name=NULL)=0' inserted before RegisterFont. Requires nested enum TextureTrackCommand declared in the class in the SAME position. Game calls it (Camera.cpp). Stub OK for menu."
+          },
+          {
+            "method": "RegisterFont",
+            "change": "signature-changed",
+            "detail": "same C++ signature 'bool RegisterFont(const char*,fontInfoEx_t&)' BUT fontInfoEx_t/fontInfo_t/glyphInfo_t structs DIFFER between v8 and v37 (SDK glyphInfo_t is float width/height/horiAdvance/horiBearingX/Y/s1/t1/s2/t2; fontInfo_t has pointSize/fontHeight/ascender/descender/idMaterial*). MENU-CRITICAL: GUI text rendering. Must adopt SDK struct definitions so the by-ref buffer matches."
+          },
+          {
+            "method": "SetColor/SetColor4",
+            "change": "unchanged-note",
+            "detail": "same. MENU-CRITICAL (GUI draw)."
+          },
+          {
+            "method": "DrawStretchPic(verts)",
+            "change": "signature-changed",
+            "detail": "v8: (...,bool clip=true,float min_x,min_y,max_x,max_y). v37: '(const idDrawVert*,const glIndex_t*,int,int,const idMaterial*,bool clip=true)' -- the min/max args REMOVED. Same single slot. MENU-CRITICAL."
+          },
+          {
+            "method": "DrawStretchPic(x,y,w,h,...)",
+            "change": "unchanged-note",
+            "detail": "same sig. MENU-CRITICAL."
+          },
+          {
+            "method": "DrawStretchCopy",
+            "change": "added",
+            "detail": "SDK inserts after DrawStretchPic overloads: 'virtual void DrawStretchCopy(float x,y,w,h,s1,t1,s2,t2,const idMaterial*)=0'. (REF commented out.) Stub OK."
+          },
+          {
+            "method": "DrawStretchTri/GlobalToNormalizedDeviceCoordinates/GetGLSettings",
+            "change": "unchanged-note",
+            "detail": "same order/sigs."
+          },
+          {
+            "method": "PrintMemInfo",
+            "change": "signature-changed",
+            "detail": "v8 'PrintMemInfo(MemInfo_t*mi)' vs v37 'PrintMemInfo(MemInfo*mi)'. Same slot; just ensure the type name resolves to the same struct (alias MemInfo == MemInfo_t)."
+          },
+          {
+            "method": "DrawTinyChar",
+            "change": "added",
+            "detail": "SDK inserts before DrawSmallChar: 'virtual void DrawTinyChar(int x,int y,int ch,const idMaterial*)=0'. (REF commented out.) Stub OK."
+          },
+          {
+            "method": "DrawTinyStringExt",
+            "change": "added",
+            "detail": "SDK inserts before DrawSmallChar: 'virtual void DrawTinyStringExt(int,int,const char*,const idVec4&,bool,const idMaterial*)=0'. Stub OK."
+          },
+          {
+            "method": "DrawSmallChar/DrawSmallStringExt/DrawBigChar/DrawBigStringExt",
+            "change": "unchanged-note",
+            "detail": "same sigs. MENU-CRITICAL (menu text)."
+          },
+          {
+            "method": "WriteDemoPics/DrawDemoPics",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "BeginFrame(windowWidth,windowHeight)",
+            "change": "unchanged-note",
+            "detail": "same sig, slot kept. MENU-CRITICAL (frame loop)."
+          },
+          {
+            "method": "BeginFrame(viewDef,w,h)",
+            "change": "added",
+            "detail": "SDK overload inserted right after: 'virtual void BeginFrame(struct viewDef_s*,int,int)=0'. (REF commented out.) Stub OK for menu; could forward to the 2-arg version."
+          },
+          {
+            "method": "RenderLightFrustum",
+            "change": "added",
+            "detail": "SDK inserts: 'virtual void RenderLightFrustum(const renderLight_s&,idPlane[6])=0'. (Was a free fn R_RenderLightFrustum in v8.) Stub OK."
+          },
+          {
+            "method": "LightProjectionMatrix",
+            "change": "added",
+            "detail": "SDK inserts: 'virtual void LightProjectionMatrix(const idVec3&,const idPlane&,idVec4[4])=0'. (Was free fn R_LightProjectionMatrix in v8.) Stub OK."
+          },
+          {
+            "method": "ToggleSmpFrame",
+            "change": "added",
+            "detail": "SDK inserts 'virtual void ToggleSmpFrame(void)=0'. Stub OK."
+          },
+          {
+            "method": "SetSpecialEffect/SetSpecialEffectParm/ShutdownSpecialEffects",
+            "change": "added",
+            "detail": "3 slots: 'SetSpecialEffect(ESpecialEffectType,bool)', 'SetSpecialEffectParm(ESpecialEffectType,int,float)', 'ShutdownSpecialEffects(void)'. Game DLL calls ShutdownSpecialEffects (Game_local.cpp:2456). Need ESpecialEffectType enum. Stubs OK."
+          },
+          {
+            "method": "EndFrame",
+            "change": "signature-changed",
+            "detail": "v8 'EndFrame(int*frontEndMsec,int*backEndMsec)'. v37 'EndFrame(int*frontEndMsec=NULL,int*backEndMsec=NULL,int*numVerts=NULL,int*numIndexes=NULL)'. Same slot, extra defaulted out-params. MENU-CRITICAL (frame loop)."
+          },
+          {
+            "method": "TakeJPGScreenshot",
+            "change": "added",
+            "detail": "SDK inserts before TakeScreenshot: 'virtual void TakeJPGScreenshot(int,int,const char*,int blends,renderView_s*,const char*basePath=\"fs_savepath\")=0'. Stub OK."
+          },
+          {
+            "method": "TakeScreenshot",
+            "change": "signature-changed",
+            "detail": "v8 'TakeScreenshot(int,int,const char*,int samples,renderView_s*)'. v37 'TakeScreenshot(int,int,const char*,int blends,renderView_s*,const char*basePath=\"fs_savepath\")' -- gains basePath. Same slot (but now preceded by TakeJPGScreenshot)."
+          },
+          {
+            "method": "CropRenderSize",
+            "change": "unchanged-note",
+            "detail": "same sig. Game DLL calls it (Item.cpp). MENU-relevant for icon render-to-texture; stub-render acceptable for boot."
+          },
+          {
+            "method": "CaptureRenderToImage",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "CaptureRenderToMemory",
+            "change": "added",
+            "detail": "SDK inserts after CaptureRenderToImage: 'virtual void CaptureRenderToMemory(void*buffer)=0'. (REF commented out.) Stub OK."
+          },
+          {
+            "method": "CaptureRenderToFile/UnCrop/GetCardCaps/UploadImage",
+            "change": "unchanged-note",
+            "detail": "same order/sigs. Game calls UploadImage (Game_network.cpp:1027) and GetCardCaps. Stub/real OK."
+          },
+          {
+            "method": "DebugGraph",
+            "change": "added",
+            "detail": "SDK appends at tail: 'virtual void DebugGraph(float cur,float min,float max,const idVec4&color)=0'. Stub OK."
+          },
+          {
+            "method": "ShowDebugGraph",
+            "change": "added",
+            "detail": "SDK appends final slot: 'virtual void ShowDebugGraph(void)=0'. Stub OK."
+          }
+        ],
+        "portingNotes": "Edit neo/renderer/RenderSystem.h: (1) update glyphInfo_t/fontInfo_t/fontInfoEx_t to the v37 layouts (float-based glyph metrics + idMaterial*material) -- required because RegisterFont fills a by-ref fontInfoEx_t the DLL passes. (2) Add the ESpecialEffectType enum and the nested TextureTrackCommand enum at the same textual positions. (3) Reorder/extend the idRenderSystem virtual list to EXACTLY the SDK Q4SDK_MD5R, !_RV_MEM_SYS_SUPPORT, !_XENON, !_CONSOLE configuration enumerated above (DeferredInit at slot1; GetValidModes; RemoveAllModelReferences; ExportMD5R+CopyPrimBatchTriangles; TrackTextureUsage; trimmed DrawStretchPic(verts); DrawStretchCopy; DrawTinyChar/StringExt; BeginFrame(viewDef)+RenderLightFrustum+LightProjectionMatrix+ToggleSmpFrame+3 special-fx; 4-arg EndFrame; TakeJPGScreenshot+TakeScreenshot(basePath); CaptureRenderToMemory; DebugGraph+ShowDebugGraph). (4) In neo/renderer/tr_local.h add all new methods to idRenderSystemLocal in the IDENTICAL order; implement menu-path ones (RegisterFont, SetColor*, DrawStretchPic, DrawSmall/BigChar/StringExt, BeginFrame, EndFrame, UploadImage, GetCardCaps, CropRenderSize) for real, and stub the rest (empty body or trivial return) in neo/renderer/RenderSystem_init.cpp / tr_main.cpp. Keep the existing free functions R_RenderLightFrustum/R_LightProjectionMatrix and have the new virtuals forward to them. Alias MemInfo to MemInfo_t. DO NOT mirror REF's commented-out header -- it is layout-incompatible with the SDK DLL."
+      },
+      {
+        "name": "idRenderWorld",
+        "vtableChanged": true,
+        "menuCritical": false,
+        "oursFile": "c:/code/id/DOOM-3/neo/renderer/RenderWorld.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/renderer/RenderWorld.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/renderer/RenderWorld.h (MODIFIED) + impls in tr_world*.cpp / RenderWorld*.cpp",
+        "newTypes": [
+          "renderEffect_t / renderEffect_s (SDK RenderWorld.h L282-308)",
+          "rvRenderEffectLocal (fwd-decl, returned by GetEffectDef)",
+          "attachedModel_t (L107-110)",
+          "rvDeclMatType (referenced in modelTrace_t.materialType, L367; defined in quake4-sdk/source/framework/declMatType.h)",
+          "RF_* render-flag enum (L393-417)",
+          "PROC_FILE format changes (PROC_FILE_ID 'PROC', PROC_FILEVERSION 4)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idRenderWorld",
+            "change": "unchanged-note",
+            "detail": "slot 0."
+          },
+          {
+            "method": "InitFromMap",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "Flush",
+            "change": "unchanged-note",
+            "detail": "GUARDED by _RV_MEM_SYS_SUPPORT (NOT defined) -> NOT in vtable. Skip."
+          },
+          {
+            "method": "AddEntityDef/UpdateEntityDef/FreeEntityDef/GetRenderEntity",
+            "change": "signature-changed",
+            "detail": "same C++ sigs, BUT renderEntity_t struct grew (added suppressSurfaceMask, overlayShader, referenceSoundHandle replaces referenceSound ptr, forceUpdate->bool + weaponDepthHackInViewID, shadowLODDistance, suppressLOD). The game DLL fills renderEntity_t; the engine reads it. Struct layout must match SDK."
+          },
+          {
+            "method": "AddLightDef/UpdateLightDef/FreeLightDef/GetRenderLight",
+            "change": "signature-changed",
+            "detail": "same sigs; renderLight_t struct grew (detailLevel, noDynamicShadows, globalLight, referenceSoundHandle). Match SDK struct."
+          },
+          {
+            "method": "WriteRenderLight",
+            "change": "added",
+            "detail": "SDK inserts after GetRenderLight: 'virtual void WriteRenderLight(idDemoFile*,const renderLight_t*)=0'. Begins a 12-method insertion block. Stub OK."
+          },
+          {
+            "method": "ReadRenderLight",
+            "change": "added",
+            "detail": "'virtual void ReadRenderLight(idDemoFile*,renderLight_t&)=0'. Stub OK."
+          },
+          {
+            "method": "AddEffectDef",
+            "change": "added",
+            "detail": "'virtual qhandle_t AddEffectDef(const renderEffect_t*,int time)=0'. Needs renderEffect_t type. Return -1 stub OK for menu (no BSE effects at menu)."
+          },
+          {
+            "method": "UpdateEffectDef",
+            "change": "added",
+            "detail": "'virtual bool UpdateEffectDef(qhandle_t,const renderEffect_t*,int)=0'. Stub return false."
+          },
+          {
+            "method": "StopEffectDef",
+            "change": "added",
+            "detail": "'virtual void StopEffectDef(qhandle_t)=0'. Stub."
+          },
+          {
+            "method": "GetEffectDef",
+            "change": "added",
+            "detail": "'virtual const rvRenderEffectLocal* GetEffectDef(qhandle_t)const=0'. Needs fwd-decl rvRenderEffectLocal. Stub return NULL."
+          },
+          {
+            "method": "FreeEffectDef",
+            "change": "added",
+            "detail": "'virtual void FreeEffectDef(qhandle_t)=0'. Stub."
+          },
+          {
+            "method": "EffectDefHasSound",
+            "change": "added",
+            "detail": "'virtual bool EffectDefHasSound(const renderEffect_s*)=0'. Stub return false."
+          },
+          {
+            "method": "PushMarkedDefs/ClearMarkedDefs/FreeDefs",
+            "change": "added",
+            "detail": "3 void() slots. Stubs."
+          },
+          {
+            "method": "RemoveAllModelReferences",
+            "change": "added",
+            "detail": "'virtual void RemoveAllModelReferences(idRenderModel*)=0' (end of insertion block, before GenerateAllInteractions). Stub OK."
+          },
+          {
+            "method": "GenerateAllInteractions",
+            "change": "unchanged-note",
+            "detail": "same; now far lower in vtable due to insertions above."
+          },
+          {
+            "method": "CheckAreaForPortalSky",
+            "change": "removed",
+            "detail": "Present in v8 (after GenerateAllInteractions) but ABSENT in v37 idRenderWorld. Remove from our vtable."
+          },
+          {
+            "method": "ProjectDecalOntoWorld/ProjectDecal/ProjectOverlay/RemoveDecals",
+            "change": "unchanged-note",
+            "detail": "same sigs. Game DLL calls ProjectDecalOntoWorld (Game_local.cpp:6030)."
+          },
+          {
+            "method": "SetRenderView",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "RenderScene",
+            "change": "signature-changed",
+            "detail": "v8 'RenderScene(const renderView_t*)'. v37 'RenderScene(const renderView_t*,int renderFlags=RF_NORMAL)'. Same slot; needs RF_* enum."
+          },
+          {
+            "method": "HasSkybox",
+            "change": "added",
+            "detail": "'virtual bool HasSkybox(int areaNum)=0' inserted after RenderScene. Stub return false."
+          },
+          {
+            "method": "FindVisibleAreas",
+            "change": "added",
+            "detail": "'virtual void FindVisibleAreas(idVec3,int,bool*)=0'. Stub."
+          },
+          {
+            "method": "RenderPortalFades",
+            "change": "added",
+            "detail": "'virtual void RenderPortalFades(void)=0'. Stub."
+          },
+          {
+            "method": "WorldToScreen(vec3)",
+            "change": "added",
+            "detail": "'virtual idVec3 WorldToScreen(renderView_t*,idVec3)=0'. Stub return origin."
+          },
+          {
+            "method": "WorldToScreen(bounds)",
+            "change": "added",
+            "detail": "'virtual idBounds WorldToScreen(renderView_t*,idBounds)=0'. Stub."
+          },
+          {
+            "method": "NumPortals/FindPortal/SetPortalState/GetPortalState/AreasAreConnected/NumAreas/PointInArea/BoundsInAreas/NumPortalsInArea",
+            "change": "unchanged-note",
+            "detail": "same order/sigs."
+          },
+          {
+            "method": "GetPortals",
+            "change": "added",
+            "detail": "SDK inserts before GetPortal: 'virtual void GetPortals(int areaNum,exitPortal_t*ret,int size)=0'. Stub."
+          },
+          {
+            "method": "GetPortal(out-param)",
+            "change": "added",
+            "detail": "SDK inserts: 'virtual void GetPortal(int areaNum,int portalNum,exitPortal_t*ret)=0' (an OVERLOAD). Stub."
+          },
+          {
+            "method": "GetPortal(by-value)",
+            "change": "unchanged-note",
+            "detail": "'virtual exitPortal_t GetPortal(int,int)=0' still present as the 3rd of the trio. Order: GetPortals, GetPortal(out), GetPortal(byval)."
+          },
+          {
+            "method": "GuiTrace/ModelTrace/Trace/FastWorldTrace",
+            "change": "unchanged-note",
+            "detail": "same sigs."
+          },
+          {
+            "method": "StartWritingDemo/StopWritingDemo",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "ProcessDemoCommand",
+            "change": "signature-changed",
+            "detail": "v8 '(idDemoFile*,renderView_t*demoRenderView,int*demoTimeOffset)'. v37 '(idDemoFile*,renderView_t*demoRenderView,renderView_t*portalSkyRenderView,int*demoTimeOffset)' -- gains portalSkyRenderView. Same slot."
+          },
+          {
+            "method": "RegenerateWorld",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "DebugClearLines -> DebugClear",
+            "change": "signature-changed",
+            "detail": "v8 'DebugClearLines(int time)'. v37 'DebugClear(int time)'. Same slot, renamed. Implementation identical."
+          },
+          {
+            "method": "DebugLine/DebugArrow/DebugWinding/DebugCircle/DebugSphere",
+            "change": "unchanged-note",
+            "detail": "same sigs/order."
+          },
+          {
+            "method": "DebugBounds",
+            "change": "signature-changed",
+            "detail": "v8 'DebugBounds(color,bounds,org=vec3_origin,lifetime=0)'. v37 adds trailing 'bool depthTest=false'. Same slot."
+          },
+          {
+            "method": "MemorySummary",
+            "change": "added",
+            "detail": "SDK inserts after DebugBounds: 'virtual size_t MemorySummary(const idCmdArgs&)=0'. Stub return 0."
+          },
+          {
+            "method": "ShowDebugLines/ShowDebugPolygons/ShowDebugText",
+            "change": "added",
+            "detail": "3 void() slots inserted. Stubs."
+          },
+          {
+            "method": "DebugFOV",
+            "change": "added",
+            "detail": "'virtual void DebugFOV(color,origin,dir,farDot,farDist,nearDot=1,nearDist=0,alpha=0.3,lifetime=0)=0' inserted before DebugBox. Stub."
+          },
+          {
+            "method": "DebugBox/DebugFrustum/DebugCone/DebugAxis",
+            "change": "unchanged-note",
+            "detail": "same sigs."
+          },
+          {
+            "method": "DebugClearPolygons",
+            "change": "removed",
+            "detail": "v8 has 'DebugClearPolygons(int time)' before DebugPolygon; v37 REMOVES it. Drop from vtable."
+          },
+          {
+            "method": "DebugPolygon",
+            "change": "unchanged-note",
+            "detail": "same sig (now directly follows DebugAxis)."
+          },
+          {
+            "method": "DrawText",
+            "change": "unchanged-note",
+            "detail": "same sig, final slot."
+          }
+        ],
+        "portingNotes": "Edit neo/renderer/RenderWorld.h: update renderEntity_t and renderLight_t structs to the v37 layouts (these are passed by the DLL through AddEntityDef/AddLightDef and must be binary-identical), add renderEffect_t/renderEffect_s, attachedModel_t, the RF_* enum, and PROC_FILE format constants. Add fwd-decls rvRenderEffectLocal and rvDeclMatType. Add 'const rvDeclMatType* materialType' to modelTrace_t (it shifts the struct, and the game reads .materialType). Then rebuild the idRenderWorld virtual list to the exact SDK order above: insert the 12-method block after GetRenderLight, REMOVE CheckAreaForPortalSky and DebugClearPolygons, add the post-RenderScene portal/skybox/worldtoscreen block, the GetPortals/GetPortal(out) overloads before by-value GetPortal, the ProcessDemoCommand extra arg, rename DebugClearLines->DebugClear, add depthTest to DebugBounds, insert MemorySummary/ShowDebug*/DebugFOV. In neo/renderer/tr_local.h add every new method to idRenderWorldLocal in identical order; implement none for boot-to-menu beyond what an empty world needs -- trivial stubs (return -1 / NULL / 0 / no-op) are sufficient since no world is rendered at the main menu. Pull real bodies for DebugClear (was DebugClearLines) and the demo methods from existing neo code; pull effect-def stubs' shape from REF RenderWorld_demo/portal files only as a guide."
+      },
+      {
+        "name": "idRenderModelManager",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "oursFile": "c:/code/id/DOOM-3/neo/renderer/ModelManager.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/renderer/ModelManager.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/renderer/ModelManager.h + impl neo ModelManager.cpp",
+        "newTypes": [
+          "idRenderLight (fwd class, used by CreateLightDef/FreeLightDef/CreateShadowVolume; engine-internal)",
+          "srfTriangles_t (already exists but v37 layout differs - see idRenderModel notes)",
+          "MemInfo vs MemInfo_t"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idRenderModelManager",
+            "change": "unchanged-note",
+            "detail": "slot 0."
+          },
+          {
+            "method": "Init",
+            "change": "unchanged-note",
+            "detail": "same. MENU-CRITICAL (called at renderer init)."
+          },
+          {
+            "method": "Shutdown",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "Reset",
+            "change": "added",
+            "detail": "SDK inserts after Shutdown: 'virtual void Reset(void)=0'. Shifts all following. Stub OK (or destroy non-default models)."
+          },
+          {
+            "method": "BeginLevelLoad/EndLevelLoad",
+            "change": "unchanged-note",
+            "detail": "same."
+          },
+          {
+            "method": "AllocModel",
+            "change": "unchanged-note",
+            "detail": "same. Game DLL calls it (BrittleFracture.cpp). Real impl needed (returns a valid idRenderModel)."
+          },
+          {
+            "method": "FreeModel",
+            "change": "unchanged-note",
+            "detail": "same. Game calls it."
+          },
+          {
+            "method": "FindModel",
+            "change": "unchanged-note",
+            "detail": "same. Game calls it heavily (Anim_Blend, Entity, Item...). Real impl needed; must return SDK-layout idRenderModel."
+          },
+          {
+            "method": "CheckModel(const char*)",
+            "change": "unchanged-note",
+            "detail": "same sig. Game calls it (Anim_Testmodel)."
+          },
+          {
+            "method": "AllocStaticTriSurf",
+            "change": "added",
+            "detail": "SDK inserts a TOOLS block here: 'virtual srfTriangles_t* AllocStaticTriSurf(int verts,int indices)=0'. Map to our existing R_AllocStaticTriSurf helper."
+          },
+          {
+            "method": "FreeStaticTriSurf",
+            "change": "added",
+            "detail": "'virtual void FreeStaticTriSurf(srfTriangles_t*)=0'. Map to R_FreeStaticTriSurf."
+          },
+          {
+            "method": "CopyStaticTriSurf",
+            "change": "added",
+            "detail": "'virtual srfTriangles_t* CopyStaticTriSurf(const srfTriangles_t*)=0'."
+          },
+          {
+            "method": "PolytopeSurface",
+            "change": "added",
+            "detail": "'virtual srfTriangles_t* PolytopeSurface(int numPlanes,const idPlane*,idWinding**)=0'."
+          },
+          {
+            "method": "CreateSilIndexes",
+            "change": "added",
+            "detail": "'virtual void CreateSilIndexes(srfTriangles_t*)=0'."
+          },
+          {
+            "method": "DeriveFacePlanes",
+            "change": "added",
+            "detail": "'virtual void DeriveFacePlanes(srfTriangles_t*)=0'."
+          },
+          {
+            "method": "BoundTriSurf",
+            "change": "added",
+            "detail": "'virtual void BoundTriSurf(srfTriangles_t*)=0'."
+          },
+          {
+            "method": "CleanupTriangles",
+            "change": "added",
+            "detail": "'virtual void CleanupTriangles(srfTriangles_t*,bool createNormals,bool identifySilEdges,bool useUnsmoothedTangents,bool needSilMultiply)=0'. NOTE extra 'needSilMultiply' arg vs our R_CleanupTriangles."
+          },
+          {
+            "method": "SimpleCleanupTriangles",
+            "change": "added",
+            "detail": "'virtual void SimpleCleanupTriangles(srfTriangles_t*)=0'."
+          },
+          {
+            "method": "CreateShadowVolume",
+            "change": "added",
+            "detail": "'virtual srfTriangles_t* CreateShadowVolume(const srfTriangles_t*,const idRenderLight*,int optimize)=0'."
+          },
+          {
+            "method": "CreateLightDef",
+            "change": "added",
+            "detail": "'virtual idRenderLight* CreateLightDef(void)=0'. Needs idRenderLight class. Stub return NULL acceptable for menu (tools-only)."
+          },
+          {
+            "method": "FreeLightDef",
+            "change": "added",
+            "detail": "'virtual void FreeLightDef(idRenderLight*)=0'. Stub."
+          },
+          {
+            "method": "CheckModel(idRenderModel*)",
+            "change": "added",
+            "detail": "'virtual bool CheckModel(idRenderModel*model)=0' -- an OVERLOAD added at end of the tools block. Stub return true/lookup."
+          },
+          {
+            "method": "DefaultModel",
+            "change": "unchanged-note",
+            "detail": "same; now far lower in vtable. MENU-relevant (fallback). Real impl needed."
+          },
+          {
+            "method": "AddModel/RemoveModel/ReloadModels/WritePrecacheCommands/FreeModelVertexCaches",
+            "change": "unchanged-note",
+            "detail": "same order/sigs."
+          },
+          {
+            "method": "PrintMemInfo",
+            "change": "signature-changed",
+            "detail": "v8 'PrintMemInfo(MemInfo_t*)'. v37 'PrintMemInfo(MemInfo*)'. Same slot; alias the type."
+          },
+          {
+            "method": "ListModelSummary",
+            "change": "added",
+            "detail": "SDK appends final slot: 'virtual size_t ListModelSummary(void)=0'. Stub return 0."
+          }
+        ],
+        "portingNotes": "Edit neo/renderer/ModelManager.h: insert Reset() after Shutdown, insert the full 11-method tools block (AllocStaticTriSurf..CreateLightDef/FreeLightDef + CheckModel(idRenderModel*)) after CheckModel(const char*), append ListModelSummary after PrintMemInfo, and change PrintMemInfo arg to MemInfo (aliased to our MemInfo_t). Add fwd-decl 'class idRenderLight'. In neo/renderer/ModelManager.cpp add all new methods to idRenderModelManagerLocal in identical order. Wire the tris/tools methods to the existing free helpers in tr_trisurf.cpp (R_AllocStaticTriSurf, R_FreeStaticTriSurf, R_CleanupTriangles -- add the needSilMultiply param, R_BoundTriSurf, R_DeriveFacePlanes, R_CreateSilIndexes, R_PolytopeSurface, R_CreateShadowVolume). Reset/ListModelSummary/CheckModel(model)/CreateLightDef/FreeLightDef can be trivial stubs for boot. Keep AllocModel/FreeModel/FindModel/CheckModel(name)/DefaultModel real -- the game DLL invokes them. menuCritical because Init() and FindModel/DefaultModel run during renderer setup."
+      },
+      {
+        "name": "idRenderModel",
+        "vtableChanged": true,
+        "menuCritical": false,
+        "oursFile": "c:/code/id/DOOM-3/neo/renderer/Model.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/renderer/Model.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/renderer/Model.h (MODIFIED) + impls RenderModel*.cpp",
+        "newTypes": [
+          "rvMesh (fwd, guarded by _MD5R_SUPPORT - NOT defined in DLL build, so primBatchMesh is void* via Q4SDK_MD5R branch)",
+          "rvSilTraceVertT (silTraceVerts; void* via Q4SDK_MD5R branch)",
+          "modelCallback_t (typedef L254)",
+          "fluidImpact_t (struct L259-269)",
+          "modelTag_t (L208-212)",
+          "viewEntity_s (fwd, SetViewEntity arg)",
+          "Rv_Sys_Heap_ID_t (only used inside _RV_MEM_SYS_SUPPORT/_DEBUG which are OFF -> not in layout)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "callback (data member)",
+            "change": "added",
+            "detail": "SDK adds a NON-virtual data member 'modelCallback_t callback;' as the FIRST public member (L365). This is NOT a vtable slot but it IS the first object field after the vptr -- affects object layout/offsets the DLL may rely on. Add it."
+          },
+          {
+            "method": "DampenFluidGrid",
+            "change": "added",
+            "detail": "SDK declares 'virtual void DampenFluidGrid(int iX,int iY,float fAmount){}' (L375) BEFORE the destructor, making it vtable SLOT 0 (the very first virtual). This shifts EVERY subsequent slot by one. Non-pure inline. (REF keeps this one.) Add empty-body override as slot 0."
+          },
+          {
+            "method": "~idRenderModel",
+            "change": "signature-changed",
+            "detail": "v8 inline '~idRenderModel(){}'. v37 'virtual ~idRenderModel(void);' is OUT-OF-LINE (declared, defined in cpp). Now vtable slot 1 (after DampenFluidGrid). Behavior: must purge data. Provide an out-of-line dtor."
+          },
+          {
+            "method": "InitFromFile/PartialInitFromFile/InitEmpty",
+            "change": "unchanged-note",
+            "detail": "same sigs, but each now sits one+ slot lower due to DampenFluidGrid insertion."
+          },
+          {
+            "method": "InitEmptyFromArgs",
+            "change": "added",
+            "detail": "SDK inserts after InitEmpty: 'virtual void InitEmptyFromArgs(const char*name,idDict&Args)=0'. (REF commented out.) Stub -> forward to InitEmpty(name)."
+          },
+          {
+            "method": "AddSurface/FinishSurfaces/PurgeModel/Reset/LoadModel/IsLoaded/SetLevelLoadReferenced/IsLevelLoadReferenced/TouchData/FreeVertexCache/Name/Print/List/Memory",
+            "change": "unchanged-note",
+            "detail": "same sigs/order (all shifted by the leading insertions)."
+          },
+          {
+            "method": "Timestamp",
+            "change": "signature-changed",
+            "detail": "v8 'ID_TIME_T Timestamp()const'. v37 'unsigned int Timestamp()const'. Same slot; return type width matches on Win32 (both 32-bit) so ABI-safe, but match the declared type."
+          },
+          {
+            "method": "NumSurfaces/NumBaseSurfaces/Surface/AllocSurfaceTriangles/FreeSurfaceTriangles/ShadowHull/IsStaticWorldModel/IsReloadable/IsDynamicModel/IsDefaultModel/Bounds/DepthHack",
+            "change": "unchanged-note",
+            "detail": "same sigs/order."
+          },
+          {
+            "method": "HasCollisionSurface",
+            "change": "added",
+            "detail": "SDK inserts after DepthHack: 'virtual bool HasCollisionSurface(const renderEntity_s*ent)const=0'. (REF commented out.) Stub return false."
+          },
+          {
+            "method": "InstantiateDynamicModel",
+            "change": "signature-changed",
+            "detail": "v8 '(const renderEntity_s*,const viewDef_s*,idRenderModel*cachedModel)'. v37 adds 'dword surfMask=~SURF_COLLISION'. Same slot. Implementation can ignore surfMask for boot."
+          },
+          {
+            "method": "NumJoints/GetJoints/GetJointHandle/GetJointName/GetDefaultPose/NearestJoint",
+            "change": "unchanged-note",
+            "detail": "same sigs/order."
+          },
+          {
+            "method": "ReadFromDemoFile -> ReadFromDemo",
+            "change": "signature-changed",
+            "detail": "v8 'ReadFromDemoFile(idDemoFile*)'. v37 'ReadFromDemo(idDemoFile*)'. Same slot, renamed."
+          },
+          {
+            "method": "WriteToDemoFile -> WriteToDemo",
+            "change": "signature-changed",
+            "detail": "v8 'WriteToDemoFile(idDemoFile*)'. v37 'WriteToDemo(idDemoFile*)'. Same slot, renamed."
+          },
+          {
+            "method": "GetSurfaceMask",
+            "change": "added",
+            "detail": "SDK appends: 'virtual int GetSurfaceMask(const char*surface)const=0'. (REF commented out.) Stub return 0."
+          },
+          {
+            "method": "SetHasSky",
+            "change": "added",
+            "detail": "'virtual void SetHasSky(bool on)=0'. Stub no-op."
+          },
+          {
+            "method": "GetHasSky",
+            "change": "added",
+            "detail": "'virtual bool GetHasSky(void)const=0'. Stub return false."
+          },
+          {
+            "method": "SetViewEntity",
+            "change": "added",
+            "detail": "'virtual void SetViewEntity(const struct viewEntity_s*ve)=0' (final slot). Stub no-op."
+          },
+          {
+            "method": "HasSeparateSilTraceMeshes",
+            "change": "unchanged-note",
+            "detail": "GUARDED by _MD5R_SUPPORT (NOT defined in DLL build) -> NOT in vtable. Skip. (REF added it but under its own config.)"
+          }
+        ],
+        "portingNotes": "Edit neo/renderer/Model.h: (1) Add 'modelCallback_t callback;' member + the modelCallback_t typedef, fluidImpact_t, modelTag_t, viewEntity_s fwd. (2) CRITICAL: add 'virtual void DampenFluidGrid(int,int,float){}' as the first virtual (before the destructor) so it occupies vtable slot 0 across ALL idRenderModel subclasses (idRenderModelStatic, idRenderModelMD5, idRenderModelLiquid, etc.). (3) Make ~idRenderModel out-of-line. (4) Insert InitEmptyFromArgs after InitEmpty, HasCollisionSurface after DepthHack, surfMask arg on InstantiateDynamicModel, rename ReadFromDemoFile/WriteToDemoFile to ReadFromDemo/WriteToDemo, append GetSurfaceMask/SetHasSky/GetHasSky/SetViewEntity. (5) Update srfTriangles_t to the v37 layout (the Q4SDK_MD5R branch adds void* silTraceVerts/silTraceVertsAlloc/primBatchMesh + float* skinToModelTransforms[ Alloc] + int numSkinToModelTransforms + the jscott/modview/security/referenceCount/topAmbientSurface/myID/noAmbientSurfaces/didSilPremultiply/tempAmbientCache + _DEBUG description[64] tail) -- this struct is shared with the DLL via models and srfTriangles passed through ModelManager tools methods, so its size/offsets matter. In every neo/renderer/Model_*.cpp subclass add the new overrides in identical order; all of (DampenFluidGrid, InitEmptyFromArgs, HasCollisionSurface, GetSurfaceMask, SetHasSky, GetHasSky, SetViewEntity) are safe trivial stubs for boot-to-menu since no models are instantiated at the main menu. Match Timestamp return type to unsigned int. menuCritical=false (models not built at menu) but layout MUST be correct because FindModel/DefaultModel hand idRenderModel* pointers to the DLL."
+      },
+      {
+        "name": "idMaterial",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "oursFile": "c:/code/id/DOOM-3/neo/renderer/Material.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/renderer/Material.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/renderer/Material.h (keeps SDK idMaterial vtable) + impl Material.cpp",
+        "newTypes": [
+          "rvNewShaderStage / rvGLSLShaderStage (fwd classes, friends; engine-internal stage system)",
+          "rvDeclMatType (materialType member + GetMaterialType accessors; defined quake4-sdk/source/framework/declMatType.h)",
+          "rvMegaTexture/idMegaTexture (newShaderStage_t.megaTexture)",
+          "Serializable<'IMAT'> (only if RV_BINARYDECLS -- it is NOT defined, so ABSENT; do not add)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "(base idDecl vtable)",
+            "change": "signature-changed",
+            "detail": "idMaterial : public idDecl. The idDecl/idDeclBase base vtable CHANGED in v37 (owned by the decl/framework cluster but idMaterial inherits it): Parse gains 'bool noCaching'; idDeclBase inserts GetCompressedLength (after GetTextLength), SetReferencedThisLevel (after EverReferenced), RebuildTextSource + Validate (after Print). idDecl's pass-through wrappers mirror these. idMaterial MUST be built against the SAME idDecl header so its inherited slots line up. This is the single most layout-sensitive item -- coordinate with the decl cluster."
+          },
+          {
+            "method": "~idMaterial",
+            "change": "unchanged-note",
+            "detail": "override of idDecl dtor slot."
+          },
+          {
+            "method": "Size",
+            "change": "unchanged-note",
+            "detail": "override, same slot/sig 'size_t Size()const'."
+          },
+          {
+            "method": "SetDefaultText",
+            "change": "unchanged-note",
+            "detail": "override, same."
+          },
+          {
+            "method": "DefaultDefinition",
+            "change": "unchanged-note",
+            "detail": "override, same."
+          },
+          {
+            "method": "Parse",
+            "change": "signature-changed",
+            "detail": "v8 'virtual bool Parse(const char*text,const int textLength)'. v37 'virtual bool Parse(const char*text,const int textLength,bool noCaching)'. SAME vtable slot (it overrides idDecl::Parse which also changed). Must add the noCaching param. MENU-CRITICAL: menu materials are parsed at load."
+          },
+          {
+            "method": "FreeData",
+            "change": "unchanged-note",
+            "detail": "override, same."
+          },
+          {
+            "method": "Print",
+            "change": "unchanged-note",
+            "detail": "override, same."
+          },
+          {
+            "method": "RebuildTextSource",
+            "change": "added",
+            "detail": "v37 idMaterial provides 'virtual bool RebuildTextSource(void){return false;}' overriding the new idDecl slot. Inline stub already correct."
+          },
+          {
+            "method": "Validate",
+            "change": "added",
+            "detail": "v37 idMaterial provides 'virtual bool Validate(const char*psText,int iTextLength,idStr&strReportTo)const' overriding the new idDecl slot. Needs a real-ish body (or return true) -- only called by validation tooling, not at menu."
+          },
+          {
+            "method": "ImageName",
+            "change": "unchanged-note",
+            "detail": "'virtual const char* ImageName()const' -- still virtual, same. NOTE: in v37 it sits relative to the new base slots; ensure idDecl base matches."
+          },
+          {
+            "method": "(all non-virtual accessors)",
+            "change": "unchanged-note",
+            "detail": "GetNumStages/GetStage/Coverage/GetSort/TestMaterialFlag/GlobalGui/etc are NON-virtual inline in both -> not vtable. But many gained Raven bodies/extra members (materialType, portalImage, useCount...). The PRIVATE data members differ substantially (rvDeclMatType*materialType, materialTypeArray, MTAWidth/Height, useCount/globalUseCount, portalDistanceNear/Far, portalImage, suppressInSubview, portalSky, refCount). idMaterial sizeof differs; the DLL only holds 'const idMaterial*' and calls non-virtual inline accessors compiled into the DLL, so member OFFSETS for the accessors it uses (GetSort, IsDrawn, Coverage, TestMaterialFlag, GetEntityGui, GlobalGui, GetContentFlags/GetSurfaceFlags, GetSurfaceType, GetCullType, Spectrum...) MUST match. Adopt the SDK member layout wholesale."
+          }
+        ],
+        "portingNotes": "Edit neo/renderer/Material.h to the v37 idMaterial: change Parse to (text,textLength,noCaching); add the RebuildTextSource (inline {return false;}) and Validate virtual overrides; add fwd classes rvNewShaderStage/rvGLSLShaderStage (friends) and idMegaTexture; add the rvDeclMatType member + GetMaterialType accessors; and REPLACE the private data-member block with the SDK ordering (materialType, materialTypeArray, materialTypeArrayName, MTAWidth, MTAHeight, useCount, globalUseCount, portalDistanceNear/Far, portalImage, ... through refCount) plus the enlarged shaderStage_t/newShaderStage_t/textureStage_t (newShaderStage_t gains md5rVertexProgram under Q4SDK_MD5R, MAX_VERTEX_PARMS=16, MAX_FRAGMENT_PARMS=8, fragment parm/binding arrays, megaTexture). Do NOT define RV_BINARYDECLS (precompiled.h leaves it off) so the Serializable<'IMAT'> base is absent -- keeping single-inheritance from idDecl. The vtable correctness of idMaterial is INHERITED from idDecl: this cluster cannot be finished without the decl/framework cluster updating neo/framework/DeclManager.h's idDeclBase/idDecl to the v37 layout (Parse+noCaching, GetCompressedLength, SetReferencedThisLevel, RebuildTextSource, Validate). Implement Parse/SetDefaultText/FreeData/Size/Print/ImageName for real (menu materials load through them); Validate/RebuildTextSource can return false/true stub. menuCritical=true: declManager->FindMaterial returns idMaterial* and the menu GUI parses+draws materials immediately."
+      }
+    ]
+  },
+  {
+    "cluster": "ui-MENU-CRITICAL",
+    "summary": "All three interfaces (idUserInterface, idUserInterfaceManager, idListGUI) changed vtable layout from DOOM3 v8 to Quake4 v37. The canonical target for OURS is the UNMODIFIED SDK v37 header (c:/code/id/quake4-sdk/source/ui/), compiled with _RV_MEM_SYS_SUPPORT UNDEFINED and _XENON UNDEFINED (per project decision), because the gamex86.dll is built against exactly that. IMPORTANT WARNING: the REF (Quake4Doom) ui/UserInterface.h and ui/ListGUI.h are NOT a faithful copy of the SDK — REF commented out many pure-virtuals (SetStateVector, ReadFromDemo/WriteToDemo, GuiIndex, FindGuiByIndex, ClearGameGuis, RunAlwaysThinkGUIs, ListGUI::Add/Push greyed overloads) and inlined trivial bodies for others. REF gets away with this because it recompiles BOTH engine and game against its own modified header. WE CANNOT: our DLL is the stock SDK build, so OURS must present the FULL SDK v37 vtable in exact slot order. Use REF only as a source of concrete stub/impl bodies for the methods it did keep (SetInteractive, GetDesktop, GetLightColor, SetStateVec4, RegisterIcon). idUserInterface gains ~13 new virtuals (several INSERTED mid-vtable, shifting all later slots); idUserInterfaceManager replaces FindDemoGui with GuiIndex/FindGuiByIndex/ClearGameGuis and appends RunAlwaysThinkGUIs/RegisterIcon; idListGUI changes Add/Push signatures (added bool greyed default arg — same slots, ABI-compatible). Files to edit: neo/ui/UserInterface.h, neo/ui/ListGUI.h (interface headers), neo/ui/UserInterfaceLocal.h + neo/ui/UserInterface.cpp (local impls), neo/ui/ListGUILocal.h + neo/ui/ListGUI.cpp.",
+    "interfaces": [
+      {
+        "name": "idUserInterface",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/ui/UserInterface.h (interface) + UserInterfaceLocal.h + UserInterface.cpp (impl)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/ui/UserInterface.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/ui/UserInterface.h (interface), neo/ui/UserInterfaceLocal.h + neo/ui/UserInterface.cpp (idUserInterfaceLocal impl)",
+        "newTypes": [
+          "wrapInfo_t (struct defined at top of SDK ui/UserInterface.h: {int lastWhitespace; int maxIndex;} with ctor; copy it verbatim into neo/ui/UserInterface.h)",
+          "idWindow (already forward-declared/known in OURS ui; GetDesktop returns idWindow*)",
+          "idVec3/idVec4 (already in idlib; used by SetStateVector/GetStateVector/SetStateVec4/GetStateVec4/GetLightColor return-by-value)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idUserInterface",
+            "change": "unchanged-note",
+            "detail": "dtor slot(s) unchanged. v8 '~idUserInterface(){}' vs v37 '~idUserInterface(void){}'. Same position."
+          },
+          {
+            "method": "Name",
+            "change": "unchanged-note",
+            "detail": "slot 1. v8 'Name() const' vs v37 'Name(void) const' — identical ABI."
+          },
+          {
+            "method": "Comment",
+            "change": "unchanged-note",
+            "detail": "slot 2. identical ABI."
+          },
+          {
+            "method": "IsInteractive",
+            "change": "unchanged-note",
+            "detail": "slot 3. 'IsInteractive() const' — identical."
+          },
+          {
+            "method": "SetInteractive",
+            "change": "added",
+            "detail": "NEW SLOT inserted IMMEDIATELY AFTER IsInteractive (before IsUniqued). Signature: 'virtual void SetInteractive(bool interactive)'. THIS SHIFTS every following slot by +1. REF impl (UserInterface.cpp:269): '{ this->interactive = interactive; }'. OURS already has an 'interactive' member — implement same one-liner. Used by SDK game DLL."
+          },
+          {
+            "method": "IsUniqued",
+            "change": "reordered",
+            "detail": "slot moved +1 due to SetInteractive insertion. Body unchanged (returns uniqued)."
+          },
+          {
+            "method": "SetUniqued",
+            "change": "reordered",
+            "detail": "shifted +1. unchanged body."
+          },
+          {
+            "method": "InitFromFile",
+            "change": "reordered",
+            "detail": "shifted +1. Signature identical (const char*,bool=true,bool=true)."
+          },
+          {
+            "method": "HandleEvent",
+            "change": "reordered",
+            "detail": "shifted. identical signature."
+          },
+          {
+            "method": "HandleNamedEvent",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "Redraw",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "DrawCursor",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "State",
+            "change": "reordered",
+            "detail": "shifted. 'const idDict& State(void) const' identical ABI."
+          },
+          {
+            "method": "DeleteStateVar",
+            "change": "reordered",
+            "detail": "shifted. identical. (Heavily called by SDK MultiplayerGame/Game_network — must work, not just stub, but not menu-critical.)"
+          },
+          {
+            "method": "SetStateString",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "SetStateBool",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "SetStateInt",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "SetStateFloat",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "SetStateVector",
+            "change": "added",
+            "detail": "NEW SLOT inserted AFTER SetStateFloat. 'virtual void SetStateVector(const char* varName, const idVec3& vector)'. Shifts later slots. REF COMMENTED THIS OUT in its header (line 78) so REF has no impl — you must add it. Trivial impl: format vec3 to string and SetStateString, mirroring SetStateFloat. Not menu-critical but must occupy the slot."
+          },
+          {
+            "method": "SetStateVec4",
+            "change": "added",
+            "detail": "NEW SLOT after SetStateVector. 'virtual void SetStateVec4(const char* varName, const idVec4& vector)'. REF inlined as empty '{ }' in header (line 79). SDK MultiplayerGame.cpp:1409-1413 calls it — implement like SetStateString with vec4 formatting, or empty stub for boot-to-menu."
+          },
+          {
+            "method": "ClearState",
+            "change": "added",
+            "detail": "NEW SLOT after SetStateVec4 (// bdube). 'virtual void ClearState(void)'. SDK Game_Debug.cpp:103,170 calls it. Impl: state.Clear(). REF omitted from its header (commented). Add to OURS."
+          },
+          {
+            "method": "DeleteState",
+            "change": "added",
+            "detail": "NEW SLOT after ClearState (// rjohnson). 'virtual void DeleteState(const char* varName)'. NOTE this is DISTINCT from the existing DeleteStateVar. REF commented it out (header line 81/84). Impl: state.Delete(varName). Stub OK for menu."
+          },
+          {
+            "method": "GetLightColor",
+            "change": "added",
+            "detail": "NEW SLOT after DeleteState. 'virtual idVec4 GetLightColor(void)' — RETURNS idVec4 BY VALUE (sret ABI on Win32 — adds hidden return-pointer arg; harmless as long as declared identically). SDK Weapon.cpp:803/1078 and Light.cpp:925 call it. REF header inlines '{ idVec4 zero; zero.Zero(); return zero; }' — use that as the stub."
+          },
+          {
+            "method": "GetStateString",
+            "change": "reordered",
+            "detail": "shifted by the 5 inserted setters/GetLightColor above. identical signature."
+          },
+          {
+            "method": "GetStateBool",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "GetStateInt",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "GetStateFloat",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "GetStateVector",
+            "change": "added",
+            "detail": "NEW SLOT after GetStateFloat. 'virtual idVec3 GetStateVector(const char* varName, const char* defaultString=\"0 0 0\") const' — returns idVec3 by value. REF commented out (header line 90). Add to OURS. Impl: parse state string to idVec3, fallback to default. Stub returning default OK for menu."
+          },
+          {
+            "method": "GetStateVec4",
+            "change": "added",
+            "detail": "NEW SLOT after GetStateVector. 'virtual idVec4 GetStateVec4(const char* varName, const char* defaultString=\"0 0 0 0\") const' — returns idVec4 by value. REF commented out (line 91). Add to OURS."
+          },
+          {
+            "method": "GetDesktop",
+            "change": "added",
+            "detail": "NEW SLOT after GetStateVec4 (// jscott). 'virtual class idWindow* GetDesktop(void) const'. SDK Player.cpp:5504,7210 call it during HUD setup. REF kept it (UserInterfaceLocal.h:81 / inline 'return desktop'). CRITICAL: OURS already has a non-virtual GetDesktop() at UserInterfaceLocal.h:80 returning desktop — must promote it to a VIRTUAL override and add the pure-virtual to the interface header at the correct slot."
+          },
+          {
+            "method": "StateChanged",
+            "change": "reordered",
+            "detail": "shifted by all inserts above. identical signature (int,bool=false)."
+          },
+          {
+            "method": "Activate",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "Trigger",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "ReadFromDemo",
+            "change": "signature-changed",
+            "detail": "RENAMED from v8 'ReadFromDemoFile(idDemoFile*)' to v37 'ReadFromDemo(idDemoFile*)'. SAME SLOT, SAME ABI (name doesn't affect vtable). REF commented it out entirely (header line 106) but the STOCK SDK keeps it as pure-virtual, so OURS MUST keep the slot. Just rename OURS method (or keep ReadFromDemoFile body, only the interface declaration name matters for the contract — but to match SDK keep name ReadFromDemo). Existing OURS impl is fine."
+          },
+          {
+            "method": "WriteToDemo",
+            "change": "signature-changed",
+            "detail": "RENAMED from 'WriteToDemoFile' to 'WriteToDemo'. Same slot/ABI. Keep the slot (SDK has it as pure-virtual even though REF dropped it)."
+          },
+          {
+            "method": "WriteToSaveGame",
+            "change": "reordered",
+            "detail": "shifted. identical (const)."
+          },
+          {
+            "method": "ReadFromSaveGame",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "SetKeyBindingNames",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "SetCursor",
+            "change": "reordered",
+            "detail": "shifted. identical (float,float)."
+          },
+          {
+            "method": "CursorX",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "CursorY",
+            "change": "reordered",
+            "detail": "shifted. identical."
+          },
+          {
+            "method": "GetMaxTextIndex",
+            "change": "added",
+            "detail": "NEW SLOT APPENDED at end (after CursorY) (// mekberg). 'virtual bool GetMaxTextIndex(const char* windowName, const char* text, wrapInfo_t& wrapInfo) const'. Requires the wrapInfo_t struct. SDK MultiplayerGame.cpp:5465 calls it (not menu path). Stub returning false (and leaving wrapInfo defaults) is enough for boot-to-menu. REF dropped it from its header."
+          },
+          {
+            "method": "[_XENON GetMaterialsList]",
+            "change": "unchanged-note",
+            "detail": "SDK has 'GetMaterialsList' guarded by '#if defined(_XENON)' — _XENON UNDEFINED on our Win32 build, so this slot does NOT exist. DO NOT add it."
+          },
+          {
+            "method": "[_RV_MEM_SYS_SUPPORT IsLevelLoadReferenced/SetLevelLoadReferenced]",
+            "change": "unchanged-note",
+            "detail": "SDK guards these two with '#if defined(_RV_MEM_SYS_SUPPORT)'. That macro is UNDEFINED per project decision, so these slots are ABSENT. DO NOT add them — adding would over-extend the vtable and mismatch the DLL."
+          }
+        ],
+        "portingNotes": "Edit neo/ui/UserInterface.h: (1) add the wrapInfo_t struct verbatim from SDK at top; (2) insert these pure virtuals in EXACT order: SetInteractive right after IsInteractive; then after SetStateFloat add SetStateVector, SetStateVec4, ClearState, DeleteState, GetLightColor; then after GetStateFloat add GetStateVector, GetStateVec4, GetDesktop; rename ReadFromDemoFile->ReadFromDemo and WriteToDemoFile->WriteToDemo (keep slots); append GetMaxTextIndex after CursorY. DO NOT add the _XENON or _RV_MEM_SYS_SUPPORT methods. Then edit neo/ui/UserInterfaceLocal.h to add matching virtual overrides in the same order (promote existing non-virtual GetDesktop to virtual; rename the two demo methods). Implement bodies in neo/ui/UserInterface.cpp: SetInteractive {interactive=b;}; ClearState {state.Clear();}; DeleteState {state.Delete(name);}; GetLightColor {idVec4 z; z.Zero(); return z;} (or real parse); SetStateVector/SetStateVec4/GetStateVector/GetStateVec4 by string<->vec conversion mirroring the existing float versions; GetMaxTextIndex {return false;} stub; GetDesktop {return desktop;}. For boot-to-menu only GetDesktop, SetInteractive, ClearState need plausible behaviour; the rest can be minimal stubs but MUST occupy their slots."
+      },
+      {
+        "name": "idUserInterfaceManager",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/ui/UserInterface.h + UserInterfaceLocal.h:119 (idUserInterfaceManagerLocal) + UserInterface.cpp",
+        "sdkFile": "c:/code/id/quake4-sdk/source/ui/UserInterface.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/ui/UserInterface.h (interface), neo/ui/UserInterfaceLocal.h:118 + neo/ui/UserInterface.cpp (idUserInterfaceManagerLocal impl)",
+        "newTypes": [
+          "none new — RegisterIcon/RunAlwaysThinkGUIs use only primitive/const char* args; GuiIndex/FindGuiByIndex use idUserInterface*/int"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idUserInterfaceManager",
+            "change": "unchanged-note",
+            "detail": "dtor slot unchanged."
+          },
+          {
+            "method": "Init",
+            "change": "unchanged-note",
+            "detail": "slot 1. identical. MENU PATH: called from game->Init via uiManager->Init (Game_local.cpp:105 wires import->uiManager)."
+          },
+          {
+            "method": "Shutdown",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "Touch",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "WritePrecacheCommands",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "SetSize",
+            "change": "unchanged-note",
+            "detail": "identical (float,float)."
+          },
+          {
+            "method": "BeginLevelLoad",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "EndLevelLoad",
+            "change": "unchanged-note",
+            "detail": "identical. NOTE: SDK has a '#if _RV_MEM_SYS_SUPPORT FlushGUIs()' slot immediately after EndLevelLoad — macro UNDEFINED so that slot is ABSENT. Do NOT add FlushGUIs."
+          },
+          {
+            "method": "Reload",
+            "change": "unchanged-note",
+            "detail": "slot unchanged (since FlushGUIs is compiled out). identical (bool all)."
+          },
+          {
+            "method": "ListGuis",
+            "change": "unchanged-note",
+            "detail": "v8 'ListGuis() const' vs v37 'ListGuis(void) const' — identical ABI."
+          },
+          {
+            "method": "CheckGui",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "Alloc",
+            "change": "unchanged-note",
+            "detail": "identical (returns idUserInterface*)."
+          },
+          {
+            "method": "DeAlloc",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "FindGui",
+            "change": "unchanged-note",
+            "detail": "identical 4-arg signature (const char*,bool,bool,bool). MENU PATH: SDK Game_local.cpp:2881 'uiManager->FindGui(...)'."
+          },
+          {
+            "method": "FindDemoGui",
+            "change": "removed",
+            "detail": "v8 had 'virtual idUserInterface* FindDemoGui(const char* qpath)' at this slot. v37 REMOVES it and replaces the slot region with GuiIndex/FindGuiByIndex/ClearGameGuis (below). OURS must DELETE FindDemoGui from the interface (and from local) to keep slots aligned."
+          },
+          {
+            "method": "GuiIndex",
+            "change": "added",
+            "detail": "NEW SLOT (replaces FindDemoGui position): 'virtual int GuiIndex(idUserInterface* gui)'. REF commented it out (header line 155) — add it to OURS. Returns index into global gui list. Stub: return -1 (or implement via guis.FindIndex). Not menu-critical."
+          },
+          {
+            "method": "FindGuiByIndex",
+            "change": "added",
+            "detail": "NEW SLOT after GuiIndex: 'virtual idUserInterface* FindGuiByIndex(int index)'. REF commented out (line 158). Stub returning NULL acceptable for menu."
+          },
+          {
+            "method": "ClearGameGuis",
+            "change": "added",
+            "detail": "NEW SLOT after FindGuiByIndex: 'virtual void ClearGameGuis(void)'. REF commented out (line 161). Empty stub OK for menu."
+          },
+          {
+            "method": "AllocListGUI",
+            "change": "reordered",
+            "detail": "slot shifted relative to v8 only because FindDemoGui(1 slot) was replaced by 3 new slots (net +2). Signature identical (returns idListGUI*)."
+          },
+          {
+            "method": "FreeListGUI",
+            "change": "reordered",
+            "detail": "shifted +2. identical."
+          },
+          {
+            "method": "RunAlwaysThinkGUIs",
+            "change": "added",
+            "detail": "NEW SLOT APPENDED after FreeListGUI (// rjohnson): 'virtual void RunAlwaysThinkGUIs(int time)'. REF commented it out of its header (line 171) AND commented out the game call (Game_local.cpp:3530) — but the STOCK SDK game DLL keeps the pure-virtual declared, so OURS MUST provide the slot. Note SDK Game_local.cpp:3669 actually calls common->RunAlwaysThinkGUIs (the common interface, separate). Empty stub fine."
+          },
+          {
+            "method": "RegisterIcon",
+            "change": "added",
+            "detail": "NEW SLOT APPENDED last (// bdube): 'virtual void RegisterIcon(const char* code, const char* shader, int x=-1, int y=-1, int w=-1, int h=-1)'. SDK Game_local.cpp:2978-2980 CALLS THIS during entity/gui spawn parsing (parseEntityDef path) — may run during menu/precache. REF inlines empty '{ }' (header line 173). Provide at minimum an empty stub; ideally register the icon shader. Occupies final manager slot."
+          }
+        ],
+        "portingNotes": "Edit neo/ui/UserInterface.h idUserInterfaceManager: REMOVE 'FindDemoGui'. After FindGui add GuiIndex(idUserInterface*), FindGuiByIndex(int), ClearGameGuis(void). Keep AllocListGUI/FreeListGUI. Append RunAlwaysThinkGUIs(int) then RegisterIcon(const char*,const char*,int=-1,int=-1,int=-1,int=-1). Do NOT add FlushGUIs (it is _RV_MEM_SYS_SUPPORT-only and that macro is off). Mirror in neo/ui/UserInterfaceLocal.h idUserInterfaceManagerLocal (remove FindDemoGui decl/impl; add the five new overrides in the same order). Implement in neo/ui/UserInterface.cpp: GuiIndex {return guis.FindIndex over guis list or -1;}; FindGuiByIndex {return NULL;}; ClearGameGuis {}; RunAlwaysThinkGUIs(int) {}; RegisterIcon(...) {} (empty stub OK; a real impl loads the shader and stores it). Init/FindGui/SetSize/BeginLevelLoad/EndLevelLoad are the menu-path methods and already exist — leave them. Also delete the FindDemoGui implementation in UserInterface.cpp."
+      },
+      {
+        "name": "idListGUI",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/ui/ListGUI.h (heavily commented) + ListGUILocal.h + ListGUI.cpp",
+        "sdkFile": "c:/code/id/quake4-sdk/source/ui/ListGUI.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/ui/ListGUI.h (interface), neo/ui/ListGUILocal.h:41 + neo/ui/ListGUI.cpp (idListGUILocal impl)",
+        "newTypes": [
+          "none — only an added 'bool greyed=false' default parameter; no new types"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idListGUI",
+            "change": "unchanged-note",
+            "detail": "dtor slot unchanged."
+          },
+          {
+            "method": "Config",
+            "change": "unchanged-note",
+            "detail": "slot 1. identical (idUserInterface*, const char*)."
+          },
+          {
+            "method": "Add",
+            "change": "signature-changed",
+            "detail": "SAME SLOT. v8 'virtual void Add(int id, const idStr& s)' -> v37 'virtual void Add(int id, const idStr& s, bool greyed=false)' (// shouchard greyed support). The extra defaulted bool arg does NOT change the vtable slot, but the CALLEE ABI changes: the stock SDK DLL pushes a 3rd (bool) arg, so OURS Add MUST accept the bool parameter or the stack/ABI mismatches on __thiscall. Update OURS signature to match. REF commented this out of its header (line 23) — do NOT follow REF here; the stock SDK declares it, so keep it. Behaviour: ignore greyed for boot-to-menu (or pass through). Menu lists (server browser etc.) use this."
+          },
+          {
+            "method": "Push",
+            "change": "signature-changed",
+            "detail": "SAME SLOT. v8 'virtual void Push(const idStr& s)' -> v37 'virtual void Push(const idStr& s, bool greyed=false)'. Same slot, but add the bool param to OURS to match the DLL's call ABI. REF commented out (line 25) — ignore REF, keep per SDK."
+          },
+          {
+            "method": "Del",
+            "change": "unchanged-note",
+            "detail": "identical (bool Del(int))."
+          },
+          {
+            "method": "Clear",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "Num",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "GetSelection",
+            "change": "unchanged-note",
+            "detail": "identical (char*,int,int=0) const."
+          },
+          {
+            "method": "SetSelection",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "GetNumSelections",
+            "change": "unchanged-note",
+            "detail": "identical."
+          },
+          {
+            "method": "IsConfigured",
+            "change": "unchanged-note",
+            "detail": "identical const."
+          },
+          {
+            "method": "SetStateChanges",
+            "change": "unchanged-note",
+            "detail": "identical (bool)."
+          },
+          {
+            "method": "Shutdown",
+            "change": "unchanged-note",
+            "detail": "identical."
+          }
+        ],
+        "portingNotes": "Vtable SLOT ORDER is unchanged between v8 and v37 for idListGUI — only Add and Push gained a trailing 'bool greyed=false' default argument. Edit neo/ui/ListGUI.h: change 'Add(int id, const idStr& s)' to 'Add(int id, const idStr& s, bool greyed=false)' and 'Push(const idStr& s)' to 'Push(const idStr& s, bool greyed=false)'. Edit neo/ui/ListGUILocal.h:47/49 to match the new signatures. Edit neo/ui/ListGUI.cpp Add/Push impls to accept (and may ignore) the greyed bool. This is ABI-load-bearing: the stock SDK DLL passes the third argument, so omitting it corrupts the call. Do NOT follow REF's ListGUI.h which comments these out. menuCritical because server/mod/save lists in the main menu call AllocListGUI->Add/Push during menu population."
+      }
+    ]
+  },
+  {
+    "cluster": "sound-cm-aas-net",
+    "summary": "Four interfaces analyzed against the v37 SDK contract (all four are members of gameImport_t, so all four vtables are called across the gamex86.dll boundary and must be binary-exact). Findings by severity: (1) idSoundSystem — MASSIVELY changed vtable: nearly every world-management method gained a worldId int parameter, the entire idSoundWorld facade was folded INTO idSoundSystem, and ~30 new Raven methods were appended. This is the single biggest port in the cluster. (2) idCollisionModelManager — vtable rewritten: LoadModel/FreeMap/Translation/etc. now traffic in idCollisionModel* handles instead of cmHandle_t ints, Init/Shutdown prepended, plus new methods. Also contactInfo_t grew a trailing rvDeclMatType* member (changes struct size that crosses the DLL boundary). (3) idNetworkSystem — vtable grew from 15 to ~40 slots; Raven inserted Shutdown at slot 1 and added bool params to the Server*ReliableMessage methods, shifting every subsequent slot. menuCritical because idGameLocal::Init() calls networkSystem->AddSortFunction() before the menu. (4) idAASFileManager — IDENTICAL in all three trees; zero work. menuCritical assessment: idNetworkSystem (AddSortFunction in Init) and idSoundSystem (SetMute/StopAllSounds/menu music) are touched at boot/menu; collisionModelManager->LoadMap only fires on actual map load (not menu) but its vtable must still be exact since the pointer is handed to the DLL at Init. The clean port pattern (proven by REF) for all four: replace OURS header with the v37 SDK header layout, keep the concrete *Local class, and stub the new tail methods. NetworkSystem is special: it is a concrete (non-abstract) class instantiated directly as 'idNetworkSystem networkSystemLocal' in the .cpp — REF ports it by copying the v37 header verbatim with inline {} bodies and commenting out the now-inlined .cpp definitions.",
+    "interfaces": [
+      {
+        "name": "idSoundSystem",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/sound/sound.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/sound/sound.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/sound/sound.h",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "newTypes": [
+          "rvCommonSample (abstract sample base, sound.h v37 lines 32-65; REF declares it in its sound.h too)",
+          "rvSoundShaderEdit (abstract editor iface + extern soundShaderEdit, sound.h v37 lines 251-268)",
+          "soundPortalTrace_t (struct, sound.h v37 lines 340-343)",
+          "MemInfo (renamed from MemInfo_t in PrintMemInfo signature)",
+          "SOUND_CLASS_MUSICAL const, SHAKE_FPS, SOUNDWORLD_* macros",
+          "soundShaderParms_t gained attenuatedVolume + frequencyShift/wetLevel/dryLevel (struct size change crossing DLL boundary)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idSoundSystem",
+            "change": "unchanged-note",
+            "detail": "slot 0 dtor identical."
+          },
+          {
+            "method": "Init / Shutdown / ClearBuffer / InitHW",
+            "change": "unchanged-note",
+            "detail": "slots 1-4 identical signatures."
+          },
+          {
+            "method": "InitVoiceComms",
+            "change": "added",
+            "detail": "INSERTED at slot 5 right after InitHW (v8 had ShutdownHW at slot 5). 'virtual void InitVoiceComms(void)'. Shifts everything below. Stub: empty body."
+          },
+          {
+            "method": "ShutdownHW",
+            "change": "reordered",
+            "detail": "moves from v8 slot 5 to v37 slot 6 due to InitVoiceComms insertion. Same signature."
+          },
+          {
+            "method": "ShutdownVoiceComms",
+            "change": "added",
+            "detail": "new slot 7. 'virtual void ShutdownVoiceComms(void)'. Stub empty."
+          },
+          {
+            "method": "Frame",
+            "change": "added",
+            "detail": "new slot 8. 'virtual void Frame(void)' — called once per common frame. Stub empty for menu (sound mixing handled elsewhere)."
+          },
+          {
+            "method": "ForegroundUpdate",
+            "change": "added",
+            "detail": "new slot 9. 'virtual void ForegroundUpdate(void)'. Stub empty."
+          },
+          {
+            "method": "AsyncUpdate",
+            "change": "unchanged-note",
+            "detail": "present in both; in v37 it sits at slot 10 (after the 4 inserted methods). Same 'int AsyncUpdate(int time)'."
+          },
+          {
+            "method": "AsyncMix",
+            "change": "reordered",
+            "detail": "v8 had AsyncMix near the end; v37 moves it up to slot 11 (right after AsyncUpdate, before AsyncUpdateWrite). 'int AsyncMix(int,float*)'."
+          },
+          {
+            "method": "AsyncUpdateWrite / SetMute / ImageForTime / GetSoundDecoderInfo",
+            "change": "unchanged-note",
+            "detail": "present in both, but now slots 12-15 due to upward shifts. SetMute(bool) is menu-relevant (game calls soundSystem->SetMute on cinematic/menu transitions)."
+          },
+          {
+            "method": "AllocSoundWorld",
+            "change": "removed",
+            "detail": "v8 slot — 'idSoundWorld* AllocSoundWorld(idRenderWorld*)' is GONE from the v37 idSoundSystem vtable (world creation is now internal/by-id). Removing it shifts all following slots up. REF keeps an internal AllocSoundWorld but it is NOT a vtable slot of the v37 iface."
+          },
+          {
+            "method": "SetPlayingSoundWorld",
+            "change": "removed",
+            "detail": "v8 method removed from v37 vtable; replaced by worldId-based routing + SetActiveSoundWorld."
+          },
+          {
+            "method": "GetPlayingSoundWorld",
+            "change": "removed",
+            "detail": "v8 method removed; REF exposes GetSoundWorldFromId(worldId) instead."
+          },
+          {
+            "method": "BeginLevelLoad",
+            "change": "signature-changed",
+            "detail": "v8 'void BeginLevelLoad(void)' -> v37 'void BeginLevelLoad(const char* mapName)'. Same slot role but different signature/mangling."
+          },
+          {
+            "method": "EndLevelLoad",
+            "change": "signature-changed",
+            "detail": "v8 'void EndLevelLoad(const char* mapString)' -> v37 'void EndLevelLoad(const char* mapName)' (arg name only; signature compatible)."
+          },
+          {
+            "method": "CleanCache",
+            "change": "added",
+            "detail": "new method 'virtual void CleanCache(void)'. Stub empty."
+          },
+          {
+            "method": "PrintMemInfo",
+            "change": "signature-changed",
+            "detail": "v8 'PrintMemInfo(MemInfo_t* mi)' -> v37 'PrintMemInfo(MemInfo* mi)' (type renamed; same pointer slot)."
+          },
+          {
+            "method": "IsEAXAvailable",
+            "change": "signature-changed",
+            "detail": "In v37 IsEAXAvailable + GetDeviceName/GetDefaultDeviceName are guarded by #ifdef _USE_OPENAL. If the DLL was compiled WITHOUT _USE_OPENAL these 3 slots vanish. CRITICAL: must match the DLL's compile config exactly. REF compiles without these in the released config."
+          },
+          {
+            "method": "SetRenderWorld",
+            "change": "added",
+            "detail": "new 'void SetRenderWorld(idRenderWorld* rw)' — replaces the old AllocSoundWorld(idRenderWorld*) role. Stub: store ptr / empty."
+          },
+          {
+            "method": "StopAllSounds",
+            "change": "signature-changed",
+            "detail": "v8 idSoundWorld::StopAllSounds(void) -> v37 idSoundSystem::StopAllSounds(int worldId). Game calls soundSystem->StopAllSounds(SOUNDWORLD_GAME) (Game_local.cpp:1531). REF: GetSoundWorldFromId(worldId)->StopAllSounds()."
+          },
+          {
+            "method": "DisableAllSounds",
+            "change": "added",
+            "detail": "new 'void DisableAllSounds(void)'. Stub empty."
+          },
+          {
+            "method": "AllocSoundEmitter",
+            "change": "signature-changed",
+            "detail": "v8 idSoundWorld::AllocSoundEmitter(void)->idSoundEmitter* ; v37 idSoundSystem::AllocSoundEmitter(int worldId)->int handle. REF impl returns GetSoundWorldFromId(worldId)->AllocSoundEmitter()->Index()."
+          },
+          {
+            "method": "FreeSoundEmitter",
+            "change": "added",
+            "detail": "new 'void FreeSoundEmitter(int worldId,int handle,bool immediate)'. REF stub empty is acceptable for menu."
+          },
+          {
+            "method": "EmitterForIndex",
+            "change": "signature-changed",
+            "detail": "v8 idSoundWorld::EmitterForIndex(int)->idSoundEmitter*; v37 idSoundSystem::EmitterForIndex(int worldId,int index). REF routes via GetSoundWorldFromId."
+          },
+          {
+            "method": "GetNumEmitters",
+            "change": "added",
+            "detail": "new 'int GetNumEmitters(void) const'. Stub return 0."
+          },
+          {
+            "method": "CurrentShakeAmplitudeForPosition",
+            "change": "signature-changed",
+            "detail": "gained leading 'int worldId' param. REF routes via GetSoundWorldFromId."
+          },
+          {
+            "method": "PlaceListener",
+            "change": "signature-changed",
+            "detail": "moved from idSoundWorld to idSoundSystem; same arg list (origin,axis,listenerId,gameTime,areaName). REF forwards to GetSoundWorldFromId(SOUNDWORLD_GAME)."
+          },
+          {
+            "method": "ResetListener",
+            "change": "added",
+            "detail": "new 'void ResetListener(void)'. Game calls it (Game_local.cpp:2451) on level transition, not menu. Stub empty."
+          },
+          {
+            "method": "FadeSoundClasses / PlayShaderDirectly / StartWritingDemo / StopWritingDemo / ProcessDemoCommand / AVIOpen / AVIClose / WriteToSaveGame / ReadFromSaveGame",
+            "change": "signature-changed",
+            "detail": "all gained a leading 'int worldId' param vs the v8 idSoundWorld versions. REF forwards each to GetSoundWorldFromId(worldId)->X()."
+          },
+          {
+            "method": "GetHardwareTime",
+            "change": "added",
+            "detail": "new 'int GetHardwareTime(void) const'. Stub return 0."
+          },
+          {
+            "method": "SetActiveSoundWorld",
+            "change": "added",
+            "detail": "new 'int SetActiveSoundWorld(bool on)'. REF stub (void) empty — NOTE REF return type differs (void vs int); use the SDK's 'int' return for vtable-correctness."
+          },
+          {
+            "method": "GetActiveSoundWorld",
+            "change": "added",
+            "detail": "new 'int GetActiveSoundWorld(void)'. Stub return 0."
+          },
+          {
+            "method": "ListActiveSounds",
+            "change": "added",
+            "detail": "new 'void ListActiveSounds(int worldId)'. Stub empty."
+          },
+          {
+            "method": "ListSoundSummary / HasCache / FindSample / SamplesToMilliseconds / AllocSoundSample / FreeSoundSample / GetInsideLevelLoad / ValidateSoundShader",
+            "change": "added",
+            "detail": "block of 8 new Raven methods (slots near the tail). FindSample returns rvCommonSample*. All trivially stubbable (return 0/false/NULL) for menu."
+          },
+          {
+            "method": "EnableRecording / GetVoiceData / PlayVoiceData / BufferVoiceData / MixVoiceData / GetCommClientNum / GetNumVoiceChannels",
+            "change": "added",
+            "detail": "7 new voice-comm methods. Stub: return 0 / empty."
+          },
+          {
+            "method": "GetReverbName / GetNumAreas / GetReverb / SetReverb / EndCinematic",
+            "change": "added",
+            "detail": "5 new reverb/cinematic methods at the very end of the vtable. EndCinematic() is called by game (Game_local.cpp:3744) — stub empty. Others stub return 0/empty."
+          }
+        ],
+        "portingNotes": "Two files: c:/code/id/DOOM-3/neo/sound/sound.h (the cross-DLL interface) and c:/code/id/DOOM-3/neo/sound/snd_local.h (idSoundSystemLocal : public idSoundSystem at line 676) plus snd_world.cpp/snd_system.cpp impls. STEP 1: Rewrite neo/sound/sound.h idSoundSystem to the EXACT v37 vtable order above. Decide the _USE_OPENAL config to MATCH the prebuilt gamex86.dll (REF builds without it -> omit IsEAXAvailable/GetDeviceName/GetDefaultDeviceName). Add rvCommonSample + rvSoundShaderEdit + soundPortalTrace_t + extend soundShaderParms_t (attenuatedVolume,frequencyShift,wetLevel,dryLevel) to keep struct sizes matching the DLL. STEP 2: In snd_local.h add the ~30 new virtual overrides to idSoundSystemLocal. The cleanest approach (matching REF) is to keep OUR real idSoundWorld* implementation internally and add a GetSoundWorldFromId(int)->idSoundWorld* helper, then implement the worldId-keyed methods as thin forwarders to the existing idSoundWorldLocal (worldId can map to the single playing world for boot-to-menu). STEP 3: Implement the new methods in snd_system.cpp; trivial stubs (return 0/empty) suffice for EVERYTHING except: SetMute, StopAllSounds(worldId), PlaceListener, Begin/EndLevelLoad, AllocSoundEmitter, PlayShaderDirectly (menu music) which should forward to the real world. The folded-in worldId facade is the bulk of the work; REF's sound.h inline forwarders (lines 384-430) are a directly-copyable template."
+      },
+      {
+        "name": "idCollisionModelManager",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/cm/CollisionModel.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/cm/CollisionModel.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/cm/CollisionModel.h",
+        "vtableChanged": true,
+        "menuCritical": false,
+        "newTypes": [
+          "idCollisionModel (NEW abstract class — the v37 API hands out idCollisionModel* handles instead of cmHandle_t ints; methods GetName/GetBounds/GetContents/GetVertex/GetEdge/GetPolygon. REF adds DrawModel/ModelInfo to it too)",
+          "rvDeclMatType (forward-declared; pointer member added to contactInfo_t. Defined in c:/code/id/quake4-sdk/source/framework/declMatType.h and c:/code/id/_q4ref/.../framework/declMatType.h)",
+          "contactInfo_t struct GREW: SDK adds 'float separation' AND 'const rvDeclMatType* materialType' (REF adds only materialType, NOT separation — verify which the DLL expects; SDK is the contract so include BOTH separation and materialType). This changes sizeof(contactInfo_t) hence sizeof(trace_t) which crosses the DLL boundary in Translation/Rotation/Contacts results.",
+          "WORLD_MODEL_NAME macro"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idCollisionModelManager",
+            "change": "unchanged-note",
+            "detail": "slot 0 dtor identical."
+          },
+          {
+            "method": "Init",
+            "change": "added",
+            "detail": "INSERTED at slot 1: 'virtual void Init(void)'. Shifts all following slots. (REF's header omits Init/Shutdown — REF diverges from SDK here; follow the SDK contract, add Init.) Stub empty or call existing setup."
+          },
+          {
+            "method": "Shutdown",
+            "change": "added",
+            "detail": "INSERTED at slot 2: 'virtual void Shutdown(void)'. Stub empty. (Again REF omits it; SDK has it — the SDK is the binding contract.)"
+          },
+          {
+            "method": "LoadMap",
+            "change": "signature-changed",
+            "detail": "v8 'void LoadMap(const idMapFile*)' -> v37 'void LoadMap(const idMapFile*, bool forceReload)'. Extra bool param. Game calls collisionModelManager->LoadMap(mapFile,false) at Game_local.cpp:1350 (map-load time, not menu)."
+          },
+          {
+            "method": "FreeMap",
+            "change": "signature-changed",
+            "detail": "v8 'void FreeMap(void)' -> v37 'void FreeMap(const char* mapName)'. Game calls FreeMap(GetMapName()) at Game_local.cpp:648."
+          },
+          {
+            "method": "LoadModel",
+            "change": "signature-changed",
+            "detail": "v8 'cmHandle_t LoadModel(const char* modelName,bool precache)' -> v37 'idCollisionModel* LoadModel(const char* mapName,const char* modelName)' (returns abstract ptr, gains mapName, drops precache). Fundamental handle-type change — every downstream method changes accordingly. REF variant: 'idCollisionModel* LoadModel(mapName,modelName,precache)' keeps precache; SDK does not. Match SDK signature."
+          },
+          {
+            "method": "ExtractCollisionModel",
+            "change": "added",
+            "detail": "v37 SDK has 'idCollisionModel* ExtractCollisionModel(idRenderModel*, const char* modelName)' (RAVEN mwhitlock). Stub return NULL."
+          },
+          {
+            "method": "PreCacheModel",
+            "change": "added",
+            "detail": "new 'void PreCacheModel(const char* mapName,const char* modelName)'. Game calls it at Game_local.cpp:2720 during spawn (not menu). Stub empty."
+          },
+          {
+            "method": "FreeModel",
+            "change": "added",
+            "detail": "new 'void FreeModel(idCollisionModel* model)'. Stub empty."
+          },
+          {
+            "method": "PurgeModels",
+            "change": "added",
+            "detail": "new 'void PurgeModels(void)'. Stub empty."
+          },
+          {
+            "method": "ModelFromTrm",
+            "change": "signature-changed",
+            "detail": "v8 'cmHandle_t SetupTrmModel(const idTraceModel&,const idMaterial*)' RENAMED + resignatured to v37 'idCollisionModel* ModelFromTrm(const char* mapName,const char* modelName,const idTraceModel&,const idMaterial*)'. Different name AND return type AND args."
+          },
+          {
+            "method": "TrmFromModel",
+            "change": "signature-changed",
+            "detail": "v8 'bool TrmFromModel(const char* modelName,idTraceModel&)' -> v37 'bool TrmFromModel(const char* mapName,const char* modelName,idTraceModel&)'. Gains mapName."
+          },
+          {
+            "method": "CompoundTrmFromModel",
+            "change": "added",
+            "detail": "new 'int CompoundTrmFromModel(mapName,modelName,idTraceModel* trms,int maxTrms)'. Stub return 0."
+          },
+          {
+            "method": "Translation / Rotation / Contents / Contacts",
+            "change": "signature-changed",
+            "detail": "all four change their model param from 'cmHandle_t model' to 'idCollisionModel* model'. Otherwise same arg lists. These are the hot trace methods — pointer-vs-int change alters the vtable slot mangling."
+          },
+          {
+            "method": "DebugOutput",
+            "change": "signature-changed",
+            "detail": "v8 'DebugOutput(const idVec3& origin)' -> v37 'DebugOutput(const idVec3& viewOrigin,const idMat3& viewAxis)'. Extra idMat3 param. Game calls it at Game_local.cpp:4417."
+          },
+          {
+            "method": "DrawModel",
+            "change": "signature-changed",
+            "detail": "v8 'DrawModel(cmHandle_t,origin,axis,viewOrigin,float radius)' -> v37 'DrawModel(idCollisionModel*,origin,axis,viewOrigin,viewAxis,float radius)'. handle->ptr and adds idMat3 viewAxis."
+          },
+          {
+            "method": "ListModels",
+            "change": "unchanged-note",
+            "detail": "'void ListModels(void)' present in both."
+          },
+          {
+            "method": "ModelInfo",
+            "change": "signature-changed",
+            "detail": "v8 'ModelInfo(cmHandle_t model)' -> v37 'ModelInfo(int num)'. arg type cmHandle_t(int) vs int — same width, but REF omits this method entirely; SDK keeps 'ModelInfo(int num)'. Match SDK."
+          },
+          {
+            "method": "PrintMemInfo",
+            "change": "added",
+            "detail": "v37 'void PrintMemInfo(MemInfo* mi)'. Stub empty. (REF omits.)"
+          },
+          {
+            "method": "IsLoaded",
+            "change": "added",
+            "detail": "v37 'bool IsLoaded(void)'. Stub return current state. (REF omits.)"
+          },
+          {
+            "method": "WriteCollisionModelForMapEntity",
+            "change": "unchanged-note",
+            "detail": "'bool WriteCollisionModelForMapEntity(const idMapEntity*,const char* filename,bool testTraceModel=true)' present in both; trailing slot."
+          }
+        ],
+        "portingNotes": "Files: c:/code/id/DOOM-3/neo/cm/CollisionModel.h (interface) and c:/code/id/DOOM-3/neo/cm/CollisionModel_local.h (idCollisionModelManagerLocal : public idCollisionModelManager at line 293) + CollisionModel_translate.cpp / CollisionModel_load.cpp impls. This is a deep change because OUR engine is built entirely around cmHandle_t (int) handles, whereas v37 hands the DLL idCollisionModel* pointers. STRATEGY for boot-to-menu: introduce a thin idCollisionModel wrapper class that internally holds OUR cmHandle_t, so the public vtable returns idCollisionModel* while OUR collision core keeps using ints. STEP 1: edit CollisionModel.h — add the abstract idCollisionModel class, extend contactInfo_t with 'float separation' + 'const rvDeclMatType* materialType' (forward-declare rvDeclMatType), add WORLD_MODEL_NAME, and rewrite idCollisionModelManager to the EXACT v37 SDK vtable order above (Init,Shutdown first; LoadMap+bool; FreeMap+name; idCollisionModel* LoadModel; ExtractCollisionModel; PreCacheModel; FreeModel; PurgeModels; ModelFromTrm; TrmFromModel; CompoundTrmFromModel; Translation/Rotation/Contents/Contacts with idCollisionModel*; DebugOutput+viewAxis; DrawModel+viewAxis; ListModels; ModelInfo(int); PrintMemInfo; IsLoaded; WriteCollisionModelForMapEntity). STEP 2: in CollisionModel_local.h add all the new overrides and a wrapper type; implement in the .cpp by translating idCollisionModel*<->cmHandle_t. Most map/model methods are only hit on map load, so stubs that map to existing handle logic are fine — none are menuCritical. NOTE the contactInfo_t/trace_t size change must be applied even though traces aren't run at menu, because the DLL's sizeof must agree with ours where the struct is passed by pointer."
+      },
+      {
+        "name": "idAASFileManager",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/aas/AASFileManager.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/aas/AASFileManager.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/tools/compilers/aas/AASFileManager.h",
+        "vtableChanged": false,
+        "menuCritical": false,
+        "newTypes": [],
+        "methodDeltas": [
+          {
+            "method": "~idAASFileManager",
+            "change": "unchanged-note",
+            "detail": "slot 0 dtor identical."
+          },
+          {
+            "method": "LoadAAS",
+            "change": "unchanged-note",
+            "detail": "slot 1 'idAASFile* LoadAAS(const char* fileName,unsigned int mapFileCRC)' — byte-identical in all three trees."
+          },
+          {
+            "method": "FreeAAS",
+            "change": "unchanged-note",
+            "detail": "slot 2 'void FreeAAS(idAASFile* file)' — byte-identical in all three trees."
+          }
+        ],
+        "portingNotes": "NO ACTION REQUIRED for the vtable. c:/code/id/DOOM-3/neo/tools/compilers/aas/AASFileManager.h is character-for-character identical to both the SDK and REF (only the GPL license header differs, which is comments). idAASFileManagerLocal lives in c:/code/id/DOOM-3/neo/tools/compilers/aas/AASFileManager.cpp (class at line 43, global 'AASFileManager = &AASFileManagerLocal' at line 52) and already matches. The only cross-tree concern is that idAASFile (the type LoadAAS returns) must itself be layout-compatible, but that is a different cluster. Leave this interface as-is. Not touched during Init() or menu setup (AAS is loaded per-map for AI)."
+      },
+      {
+        "name": "idNetworkSystem",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/framework/async/NetworkSystem.h",
+        "sdkFile": "c:/code/id/quake4-sdk/source/framework/async/NetworkSystem.h",
+        "oursFile": "c:/code/id/DOOM-3/neo/framework/async/NetworkSystem.h",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "newTypes": [
+          "scannedClient_t (struct: nickname,clan,ping,rate)",
+          "scannedServer_t (struct: netadr_t adr, idDict serverInfo, ping, clients, OSMask, favorite, dedicated, performanceFiltered)",
+          "sortColumn_t (enum SC_NONE..NUM_SC)",
+          "sortInfo_t (struct: column, idList<int>::cmp_t* compareFn, idList<int>::filter_t* filterFn, description). All defined inline in NetworkSystem.h v37 lines 16-62; REF copies them verbatim."
+        ],
+        "methodDeltas": [
+          {
+            "method": "~idNetworkSystem",
+            "change": "unchanged-note",
+            "detail": "slot 0 dtor identical."
+          },
+          {
+            "method": "Shutdown",
+            "change": "added",
+            "detail": "INSERTED at slot 1: 'virtual void Shutdown(void)'. This shifts EVERY subsequent method down one slot vs v8. (REF comments out its body but the declaration/slot still exists in the SDK contract — the SDK declares it non-inline, so the slot is present. In REF's header it is commented out entirely, meaning REF's vtable is off-by-one vs the SDK unless the DLL was built against REF's header. Since the DLL is the SDK-compiled gamex86.dll, you MUST include Shutdown at slot 1 to match the DLL.)"
+          },
+          {
+            "method": "ServerSendReliableMessage",
+            "change": "signature-changed",
+            "detail": "v8 '(int clientNum,const idBitMsg&)' -> v37 '(int clientNum,const idBitMsg&,bool inhibitRepeater=false)'. Extra bool. Game calls ServerSendReliableMessage(-1,outMsg) (Game_local.cpp:1286 etc)."
+          },
+          {
+            "method": "RepeaterSendReliableMessage",
+            "change": "added",
+            "detail": "new '(int clientNum,const idBitMsg&,bool inhibitHeader=false,int including=-1)'. Inserted before ServerSendReliableMessageExcluding. Stub empty."
+          },
+          {
+            "method": "RepeaterSendReliableMessageExcluding",
+            "change": "added",
+            "detail": "new '(int excluding,const idBitMsg&,bool inhibitHeader=false,int clientNum=-1)'. Stub empty."
+          },
+          {
+            "method": "ServerSendReliableMessageExcluding",
+            "change": "signature-changed",
+            "detail": "v8 '(int,const idBitMsg&)' -> v37 '(int clientNum,const idBitMsg&,bool inhibitRepeater=false)'. Extra bool; also moved down due to inserts above."
+          },
+          {
+            "method": "ServerGetClientPing",
+            "change": "unchanged-note",
+            "detail": "'int ServerGetClientPing(int)' present in both, but slot shifted."
+          },
+          {
+            "method": "ServerGetClientPrediction",
+            "change": "removed",
+            "detail": "v8 had 'int ServerGetClientPrediction(int clientNum)' (v8 slot 4). It is GONE from v37 — REMOVED. Removing it (while inserting others) further reshuffles slots. Do not carry it into the v37 layout."
+          },
+          {
+            "method": "ServerGetClientTimeSinceLastPacket / ServerGetClientTimeSinceLastInput / ServerGetClientOutgoingRate / ServerGetClientIncomingRate / ServerGetClientIncomingPacketLoss",
+            "change": "unchanged-note",
+            "detail": "all present in both with same signatures, but slots shifted by the insertions/removal above."
+          },
+          {
+            "method": "ServerGetClientNum",
+            "change": "added",
+            "detail": "new 'int ServerGetClientNum(int clientId)'. Stub return 0."
+          },
+          {
+            "method": "ServerGetServerTime",
+            "change": "added",
+            "detail": "new 'int ServerGetServerTime(void)'. Stub return 0."
+          },
+          {
+            "method": "ServerConnectBot",
+            "change": "added",
+            "detail": "new 'int ServerConnectBot(void)'. Stub return -1 (no free slot)."
+          },
+          {
+            "method": "RepeaterGetClientNum",
+            "change": "added",
+            "detail": "new 'int RepeaterGetClientNum(int clientId)'. Stub return 0."
+          },
+          {
+            "method": "ClientSendReliableMessage / ClientGetPrediction / ClientGetTimeSinceLastPacket / ClientGetOutgoingRate / ClientGetIncomingRate / ClientGetIncomingPacketLoss",
+            "change": "unchanged-note",
+            "detail": "6 client methods present in both, signatures identical, slots shifted."
+          },
+          {
+            "method": "GetServerAddress / GetClientAddress / AddFriend / RemoveFriend / SetLoadingText / AddLoadingIcon / GetClientGUID",
+            "change": "added",
+            "detail": "7 new Raven ddynerman utility methods. SetLoadingText/AddLoadingIcon ARE called during map load (Game_local.cpp:1305,1349,5190-5191) — stub empty is fine (no loading screen needed at menu). Others stub return 0/empty."
+          },
+          {
+            "method": "GetTrafficStats",
+            "change": "added",
+            "detail": "new 'void GetTrafficStats(int&,int&,int&,int&) const'. Stub empty."
+          },
+          {
+            "method": "GetNumScannedServers / GetScannedServerInfo / GetScannedServerClientInfo",
+            "change": "added",
+            "detail": "server-browser methods. GetNumScannedServers/GetScannedServerInfo ARE called from idGameLocal at lines 173/186/219 (server-list GUI). For boot-to-menu return 0 / NULL — the main menu does not populate the server list until the multiplayer browser is opened. menuCritical=true overall because of AddSortFunction below."
+          },
+          {
+            "method": "AddSortFunction",
+            "change": "added",
+            "detail": "new 'void AddSortFunction(const sortInfo_t& sortInfo)'. **CALLED DIRECTLY FROM idGameLocal::Init() at Game_local.cpp:589** (networkSystem->AddSortFunction(filterByMod)) — this fires through the vtable during game Init, BEFORE the menu. THE SLOT MUST BE EXACT or the DLL crashes/corrupts at boot. A no-op stub body is sufficient (the sort fn is only used by the MP browser), but the slot position must be byte-correct."
+          },
+          {
+            "method": "RemoveSortFunction / UseSortFunction / SortFunctionIsActive",
+            "change": "added",
+            "detail": "new sort methods. UseSortFunction is called from Game_local.cpp:4059+ (mod filter, in-game). Stub: RemoveSortFunction return false, UseSortFunction empty, SortFunctionIsActive return false."
+          },
+          {
+            "method": "HTTPEnable",
+            "change": "added",
+            "detail": "new 'bool HTTPEnable(bool enable)'. Stub return false."
+          },
+          {
+            "method": "ClientSetServerInfo",
+            "change": "added",
+            "detail": "new 'void ClientSetServerInfo(const idDict&)'. Stub empty."
+          },
+          {
+            "method": "RepeaterSetInfo",
+            "change": "added",
+            "detail": "new 'void RepeaterSetInfo(const idDict&)'. Stub empty."
+          },
+          {
+            "method": "GetViewerGUID",
+            "change": "added",
+            "detail": "new 'const char* GetViewerGUID(int clientNum)' — LAST vtable slot. Stub return \"\"."
+          }
+        ],
+        "portingNotes": "File: c:/code/id/DOOM-3/neo/framework/async/NetworkSystem.h (interface) and c:/code/id/DOOM-3/neo/framework/async/NetworkSystem.cpp (the impl + the global instance). KEY STRUCTURAL FACT: idNetworkSystem is a CONCRETE (non-abstract) class — it is instantiated directly as 'idNetworkSystem networkSystemLocal' in NetworkSystem.cpp:33-35 (there is NO idNetworkSystemLocal subclass, unlike sound/cm). REF ports it by copying the v37 SDK NetworkSystem.h almost verbatim: the new Raven methods get inline '{ }' / 'return 0;' bodies in the header, and the original methods (ServerGetClientPing etc.) keep out-of-line bodies in the .cpp. PORTING STEPS: (1) Replace neo/framework/async/NetworkSystem.h wholesale with the v37 layout: add the 4 helper types (scannedClient_t, scannedServer_t, sortColumn_t, sortInfo_t), add the two private members (scannedServer/scannedClient), insert Shutdown at slot 1, add the bool params to the three Server*ReliableMessage* methods, REMOVE ServerGetClientPrediction, and append all the new methods in EXACT SDK order ending at GetViewerGUID. Give every new/stubbable method an inline body in the header ({ } or return 0). (2) In NetworkSystem.cpp, update the out-of-line definitions whose signatures changed (the bool params) and DELETE the body of ServerGetClientPrediction (it no longer exists). REF leaves the original Server* body definitions commented out (lines 43-58) because it inlines them; you can keep OUR real idAsyncNetwork-backed bodies for the methods you want functional and inline-stub the rest. (3) The instance line 'idNetworkSystem networkSystemLocal; idNetworkSystem* networkSystem=&networkSystemLocal;' stays as-is. CRITICAL VALIDATION: count the vtable so AddSortFunction lands at the same slot the SDK-compiled DLL expects — it is invoked at Init() time (Game_local.cpp:589), so a single-slot error here is an immediate boot crash. Reference REF's NetworkSystem.h directly; it is the proven slot-by-slot template, except confirm Shutdown's slot (SDK declares it as a real slot; REF commented it out — trust the SDK header since the DLL was built from it)."
+      }
+    ]
+  },
+  {
+    "cluster": "game-interface",
+    "summary": "Game.h is the single most important header for the DLL-first boot. OURS is GAME_API_VERSION 8; the SDK contract is 37. Critical facts established by reading all three trees:\n\n(1) REF's c:/code/id/_q4ref/Quake4Doom/src/game/Game.h is BYTE-IDENTICAL to the SDK's c:/code/id/quake4-sdk/source/game/Game.h. The correct port is therefore to REPLACE neo/game/Game.h's idGame/idGameEdit/gameImport_t/gameExport_t/GAME_API_VERSION with the v37 versions verbatim (modulo the build defines below).\n\n(2) BUILD-DEFINE LANDMINE on idGame::Init (vtable slot 1, immediately after the dtor). The SDK's idlib/precompiled.h leaves _RV_MEM_SYS_SUPPORT undefined but, because ID_REDIRECT_NEWDELETE is also undefined on Windows, it DEFINES RV_UNIFIED_ALLOCATOR (precompiled.h line 70-72). Under RV_UNIFIED_ALLOCATOR the SDK's Init is `Init(void*(*allocator)(size_t), void(*deallocator)(void*), size_t(*msize)(void*))`, NOT `Init(void)`. The shipped gamex86.dll's vtable slot 1 is the 3-arg form (verified in SDK Game_local.cpp:411-414, which calls Memory::InitAllocator(allocator,deallocator,msize)). REF dodged this by COMMENTING OUT RV_UNIFIED_ALLOCATOR (REF precompiled.h:80) and recompiling both sides as Init(void) — a luxury we DON'T have since we load the prebuilt SDK DLL. Therefore OUR engine MUST define RV_UNIFIED_ALLOCATOR (or otherwise declare idGame::Init with the 3 function-pointer args) and MUST call game->Init(alloc,dealloc,msize) passing real allocator thunks (e.g. wrappers over Mem_Alloc/Mem_Free; msize via _msize). A no-arg Init() call mismatches slot 1 and crashes on the very first game call.\n\n(3) gameImport_t grows one pointer: rvBSEManager *bse appended after collisionModelManager (since _RV_MEM_SYS_SUPPORT is OFF, the heapArena/systemHeapArray members are NOT present — import is 13 std pointers + bse). gameExport_t grows one pointer: rvGameLog *gameLog appended after gameEdit. Engine must populate gameImport.bse with a non-NULL rvBSEManager* whose vtable matches the SDK's 16-slot rvBSEManager (NOT REF's extended 20-slot one). Engine reads gameExport.game and gameExport.gameEdit and can ignore gameLog (REF's own Common.cpp ignores it; struct layout still must include the slot so the DLL's write lands correctly).\n\n(4) idGame gained ~80 new virtuals and several signature changes interleaved THROUGHOUT the vtable (not just appended) — SetUserInfo lost canModify, added RepeaterSetUserInfo/IsClientActive early (slots ~5-6) which shift EVERYTHING after, InitFromNewMap/InitFromSaveGame dropped soundWorld, SaveGame gained saveType_t, RunFrame changed to 4 args, MenuFrame inserted, a large Repeater/* block, effects (PlayEffect/StartViewEffect), debug, ban-list, demo and loading-gui methods. Every method must be present in exact order even if stubbed.\n\n(5) idGameEdit slot 1 (ParseSpawnArgsToRenderLight) changed return void->bool, and dozens of Raven methods (ANIM_GetAnimFromEntity, EntityGetName/ToSafeId, Script*, Thread*, mem-tracking) are inserted mid-vtable. Engine-side idGameEdit is NOT called during boot-to-menu, so a header-only layout match + trivial bodies suffice, but the LAYOUT must be exact because the same vtable is shared.\n\nNew types our engine lacks (all defined in REF/SDK): rvBSEManager + effectCategory_t/EC_IGNORE (bse/BSEInterface.h), rvGameLog (Game.h itself), rvClientEffect (fwd-decl), saveType_t/ST_REGULAR (framework/Common.h), ClientStats_t, userOrigin_t, demoState_t, debugInfoProc_t, idAASFile/MemInfo (already exist in idlib). Also the SDK Init() body calls common->GetUserCmdHz()/GetUserCmdMSec() — those idCommon methods don't exist in OURS (belongs to the common-interface cluster but blocks Init from completing).",
+    "interfaces": [
+      {
+        "name": "idGame",
+        "vtableChanged": true,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/game/Game.h (lines 103-371); impl c:/code/id/_q4ref/Quake4Doom/src/game/Game_local.cpp",
+        "sdkFile": "c:/code/id/quake4-sdk/source/game/Game.h (lines 103-371); impl c:/code/id/quake4-sdk/source/game/Game_local.cpp",
+        "oursFile": "c:/code/id/DOOM-3/neo/game/Game.h (lines 72-193)",
+        "newTypes": [
+          "rvClientEffect (fwd-decl, Game.h:89)",
+          "ClientStats_t (Game.h:92)",
+          "userOrigin_t (Game.h:98)",
+          "demoState_t/demoReliableGameMessage_t (Game.h:44-54)",
+          "saveType_t/ST_REGULAR (quake4-sdk framework/Common.h:16-22)",
+          "effectCategory_t/EC_IGNORE + vec4_one/vec3_origin (bse/BSEInterface.h:13-19)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "Init",
+            "change": "signature-changed",
+            "detail": "SLOT 1 (after dtor). OURS: Init(void). SDK shipped DLL compiles with RV_UNIFIED_ALLOCATOR defined (precompiled.h:70-72), so vtable slot is Init(void*(*alloc)(size_t),void(*dealloc)(void*),size_t(*msize)(void*)). SDK body calls Memory::InitAllocator(...) (Game_local.cpp:431-433). REF used Init(void) only because it recompiled the DLL with RV_UNIFIED_ALLOCATOR commented out (REF precompiled.h:80). We load the PREBUILT SDK DLL, so we MUST use the 3-arg form and pass real allocator thunks."
+          },
+          {
+            "method": "SetUserInfo",
+            "change": "signature-changed",
+            "detail": "OURS: SetUserInfo(clientNum, userInfo, isClient, canModify). SDK: SetUserInfo(clientNum, userInfo, isClient) — dropped canModify. Same slot, narrower args."
+          },
+          {
+            "method": "RepeaterSetUserInfo",
+            "change": "added",
+            "detail": "Inserted after GetUserInfo (~slot 5). Shifts all following slots by 1. Stub: return NULL."
+          },
+          {
+            "method": "IsClientActive",
+            "change": "added",
+            "detail": "Inserted right after RepeaterSetUserInfo (~slot 6). Stub: return false. Shifts following slots."
+          },
+          {
+            "method": "InitFromNewMap",
+            "change": "signature-changed",
+            "detail": "OURS takes (mapName, idRenderWorld*, idSoundWorld*, isServer, isClient, randseed). SDK drops idSoundWorld* -> (mapName, idRenderWorld*, isServer, isClient, randseed). Not menu-critical."
+          },
+          {
+            "method": "InitFromSaveGame",
+            "change": "signature-changed",
+            "detail": "OURS (mapName, renderWorld, soundWorld, saveGameFile). SDK drops soundWorld -> (mapName, renderWorld, saveGameFile)."
+          },
+          {
+            "method": "SaveGame",
+            "change": "signature-changed",
+            "detail": "OURS SaveGame(idFile*). SDK SaveGame(idFile*, saveType_t=ST_REGULAR). Need saveType_t enum from Common.h."
+          },
+          {
+            "method": "RunFrame",
+            "change": "signature-changed",
+            "detail": "OURS RunFrame(const usercmd_t*). SDK RunFrame(const usercmd_t*, int activeEditors, bool lastCatchupFrame, int serverGameFrame). Engine call sites (Session.cpp/AsyncServer.cpp) pass (cmd,0,true,0)."
+          },
+          {
+            "method": "MenuFrame",
+            "change": "added",
+            "detail": "Inserted immediately after RunFrame (~slot 22). MENU PATH. REF impl is empty: idGameLocal::MenuFrame(void){} (Game_local.cpp:3456). Engine main-menu loop may call game->MenuFrame() each frame; empty stub is fine."
+          },
+          {
+            "method": "RepeaterFrame",
+            "change": "added",
+            "detail": "Inserted after MenuFrame. Stub: empty."
+          },
+          {
+            "method": "ServerAllowClient",
+            "change": "signature-changed",
+            "detail": "OURS (numClients,IP,guid,password,reason). SDK adds leading clientId and privatePassword -> (clientId,numClients,IP,guid,password,privatePassword,reason)."
+          },
+          {
+            "method": "RepeaterAllowClient/RepeaterClientConnect/RepeaterClientBegin/RepeaterClientDisconnect/RepeaterWriteInitialReliableMessages",
+            "change": "added",
+            "detail": "Block inserted after ServerWriteInitialReliableMessages (~slots 30-34). Stubs return ALLOW_NO / empty."
+          },
+          {
+            "method": "ServerWriteSnapshot",
+            "change": "signature-changed",
+            "detail": "OURS (clientNum,sequence,msg,byte*clientInPVS,numPVSClients). SDK (clientNum,sequence,msg,dword*clientInPVS,numPVSClients,lastSnapshotFrame). byte*->dword* and extra arg."
+          },
+          {
+            "method": "RepeaterApplySnapshot/RepeaterProcessReliableMessage",
+            "change": "added",
+            "detail": "Inserted in the snapshot block. Stubs."
+          },
+          {
+            "method": "ClientPrediction",
+            "change": "signature-changed",
+            "detail": "SDK adds default ClientStats_t* cs=NULL trailing arg."
+          },
+          {
+            "method": "ClientRun/ClientEndFrame/ProcessRconReturn/ValidateServerSettings/HTTPRequest",
+            "change": "added",
+            "detail": "Inserted after ClientProcessReliableMessage and around DownloadRequest. Stubs (return false where bool)."
+          },
+          {
+            "method": "StartViewEffect/PlayEffect/GetPlayerView/GetCurrentGravity/Translation/SpawnClientMoveable",
+            "change": "added",
+            "detail": "Raven effects block (~mid-vtable). PlayEffect returns rvClientEffect* (return NULL). Not called at menu."
+          },
+          {
+            "method": "DebugSet*/DebugGet*/IsDebugHudActive",
+            "change": "added",
+            "detail": "Debug-hud block. Trivial stubs."
+          },
+          {
+            "method": "GetPlayerInfo/SetPlayerInfo/PlayerChatDisabled/SetViewComments/GetPlayerName/GetPlayerClan/SetFriend/GetLongGametypeName/ReceiveRemoteConsoleOutput/ListEntityStats/RegisterClientGuid/IsMultiplayer/InCinematic/PopulateBanList/RemoveGuidFromBanList/AddGuidToBanList/GetGuidByClientNum/UpdatePlayerPostMainMenu/ResetRconGuiStatus",
+            "change": "added",
+            "detail": "Large notetaking/banlist/MP block. All stubbable for menu (return false/empty)."
+          },
+          {
+            "method": "FlushBeforelevelLoad",
+            "change": "unchanged-note",
+            "detail": "Guarded by #if defined(_RV_MEM_SYS_SUPPORT). Since we do NOT define _RV_MEM_SYS_SUPPORT this slot is ABSENT in both DLL and engine — keep it out to stay in sync."
+          },
+          {
+            "method": "SetDemoState/SetRepeaterState/WriteNetworkInfo/ReadNetworkInfo/ValidateDemoProtocol/ServerWriteServerDemoSnapshot/ClientReadServerDemoSnapshot/RepeaterWriteSnapshot/RepeaterEndSnapshots/ClientReadRepeaterSnapshot/GetDemoFollowClient/GetBotInput",
+            "change": "added",
+            "detail": "Demo/repeater tail block appended near end. Stubs."
+          },
+          {
+            "method": "GetLoadingGui/SetupLoadingGui",
+            "change": "added",
+            "detail": "Final two slots. SDK GetLoadingGui(mapDeclName) replaces OURS GetMapLoadingGUI(buf). Stub GetLoadingGui return NULL/empty."
+          },
+          {
+            "method": "HandleESC/StartMenu/HandleGuiCommands/HandleMainMenuCommands",
+            "change": "unchanged-note",
+            "detail": "Same signatures, but slot indices shift due to insertions above. StartMenu is called by AsyncNetwork.cpp:472 for MP menu; HandleGuiCommands/HandleMainMenuCommands are the live main-menu callbacks — must be correctly placed and functional for menu interaction."
+          },
+          {
+            "method": "GetBestGameType/GetMapLoadingGUI/SelectTimeGroup/GetTimeGroupTime",
+            "change": "removed",
+            "detail": "OURS-only Doom3 methods with no SDK equivalent — must be REMOVED from our idGame so the vtable doesn't carry phantom slots. (GetMapLoadingGUI superseded by GetLoadingGui.)"
+          }
+        ],
+        "portingNotes": "Replace the entire idGame class in neo/game/Game.h with the v37 declaration from c:/code/id/quake4-sdk/source/game/Game.h (identical to REF). Ensure RV_UNIFIED_ALLOCATOR is defined for OUR engine+game build so Init takes the 3 function-pointer args (this matches the prebuilt SDK DLL vtable slot 1). Add the new types: copy saveType_t into neo/framework/Common.h (near line 40), add effectCategory_t/EC_IGNORE + a forward decl of rvBSEManager (see bse cluster), forward-declare rvClientEffect, and add ClientStats_t/userOrigin_t/demoState_t structs (they live inside Game.h itself so they come for free with the header swap). In neo/framework/Common.cpp LoadGameDLL(): set gameImport.bse = ::bse before calling GetGameAPI, and change the post-Init call to game->Init(alloc,dealloc,msize) with thunks over the engine heap (alloc->Mem_Alloc, dealloc->Mem_Free, msize->_msize). Our idGameLocal in neo/game/Game_local.{h,cpp} must declare/define EVERY new virtual in the exact v37 order; trivial bodies suffice for everything except the existing menu methods (HandleGuiCommands/HandleMainMenuCommands/StartMenu/HandleESC) which keep current behavior, and MenuFrame which is an empty body. Delete the OURS-only methods GetBestGameType/GetMapLoadingGUI/SelectTimeGroup/GetTimeGroupTime. Beware: the SDK Init() body calls common->GetUserCmdHz()/GetUserCmdMSec() which OUR idCommon lacks — coordinate with the common-interface cluster to add those, or Init will fail to link/run inside the DLL."
+      },
+      {
+        "name": "idGameEdit",
+        "vtableChanged": true,
+        "menuCritical": false,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/game/Game.h (lines 423-608)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/game/Game.h (lines 423-608)",
+        "oursFile": "c:/code/id/DOOM-3/neo/game/Game.h (lines 231-308)",
+        "newTypes": [
+          "idProgram/idInterpreter/idThread (fwd-decl, Game.h:415-417)",
+          "debugInfoProc_t (Game.h:419)",
+          "idAASFile (idlib AAS)",
+          "MemInfo (idlib Heap.h)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "ParseSpawnArgsToRenderLight",
+            "change": "signature-changed",
+            "detail": "SLOT 1. OURS returns void; SDK returns bool. Same args (const idDict*, renderLight_t*)."
+          },
+          {
+            "method": "ANIM_GetAnimFromEntity/ANIM_GetAnimPlaybackRateFromEntity/ANIM_GetAnimNameFromEntity",
+            "change": "added",
+            "detail": "Inserted after ANIM_GetAnimFromEntityDef (~slot 6-8). Shifts following ANIM_* slots."
+          },
+          {
+            "method": "ANIM_GetFilename/ANIM_ConvertFrameToTime/ANIM_ConvertTimeToFrame",
+            "change": "added",
+            "detail": "Inserted after ANIM_GetNumFrames."
+          },
+          {
+            "method": "FlushUnusedAnims",
+            "change": "added",
+            "detail": "Inserted before AF_SpawnEntity block."
+          },
+          {
+            "method": "EntityGetSpawnArgs",
+            "change": "signature-changed",
+            "detail": "OURS (idEntity*); SDK (const idEntity*). const-qualified."
+          },
+          {
+            "method": "EntityGetName/EntityToSafeId/EntityFromSafeId/EntitySetSkin/EntityClearSkin/EntityShow/EntityHide/EntityGetBounds/EntityPlayAnim/EntitySetFrame/EntityStopAllEffects/EntityGetDelta/EntityRemoveOriginOffset/EntityGetClassname/EntityIsDerivedFrom/EntityGetRenderEntity/EntityGetNextTeamEntity/GetPlayerInfo/SetPlayerInfo/EntitySetName",
+            "change": "added",
+            "detail": "Large Raven entity-accessor block inserted after EntitySetColor (~slots 38-57)."
+          },
+          {
+            "method": "PlayerTraceFromEye/EffectRefreshTemplate/LightSetParms/GetGameTime/SetGameTime/TracePoint/CacheDictionaryMedia/SetCamera/GetGameEntityRegisterTime/GetFirstSpawnedEntity/GetNextSpawnedEntity/DrawPlaybackDebugInfo/RecordPlayback/PlayPlayback/ShutdownPlaybacks",
+            "change": "added",
+            "detail": "Inserted after PlayerGetEyePosition."
+          },
+          {
+            "method": "ScriptGetStatementLineNumber...ScriptGetThread (13 methods)",
+            "change": "added",
+            "detail": "Whole Script* block inserted (references idProgram/idInterpreter/idThread)."
+          },
+          {
+            "method": "ThreadGetCount/ThreadGetThread/ThreadGetName/ThreadGetNumber/ThreadGetState/GetClassDebugInfo",
+            "change": "added",
+            "detail": "Thread* block (references idThread, debugInfoProc_t)."
+          },
+          {
+            "method": "MapHasExportEntities/MapLoaded/GetAASFile/PrintMemInfo/ScriptSummary/ClassSummary/EntitySummary",
+            "change": "added",
+            "detail": "Inserted between MapSave and MapSetEntityKeyVal (references idAASFile, MemInfo, idCmdArgs)."
+          },
+          {
+            "method": "tail Map* methods (MapSetEntityKeyVal..MapEntityTranslate)",
+            "change": "unchanged-note",
+            "detail": "Same signatures but shifted to the very end of a much larger vtable."
+          }
+        ],
+        "portingNotes": "Replace the idGameEdit class in neo/game/Game.h with the v37 declaration. idGameEdit is NOT exercised during boot-to-menu (engine doesn't call gameEdit at menu time), so providing the exact vtable layout with trivial/empty bodies in neo/game/Game_local's idGameEdit impl is sufficient — but the layout MUST be exact since the engine holds the same gameEdit pointer the DLL exports and any future dereference walks this vtable. Add forward decls of idProgram/idInterpreter/idThread and the debugInfoProc_t typedef (they're in the header itself). Change ParseSpawnArgsToRenderLight to return bool. Implement all new virtuals as stubs returning 0/NULL/false."
+      },
+      {
+        "name": "gameImport_t",
+        "vtableChanged": false,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/game/Game.h (lines 672-701); populated in src/framework/Common.cpp:2626-2640",
+        "sdkFile": "c:/code/id/quake4-sdk/source/game/Game.h (lines 672-701); consumed in src/game/Game_local.cpp GetGameAPI:80-110",
+        "oursFile": "c:/code/id/DOOM-3/neo/game/Game.h (lines 323-340); populated neo/framework/Common.cpp:2658-2671",
+        "newTypes": [
+          "rvBSEManager* bse (bse/BSEInterface.h)",
+          "rvHeapArena*/rvHeap* (idlib, ONLY under _RV_MEM_SYS_SUPPORT — NOT used here)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "bse",
+            "change": "added",
+            "detail": "POD struct, not a vtable. One pointer (rvBSEManager*) appended after collisionModelManager. Because _RV_MEM_SYS_SUPPORT is OFF, the heapArena/systemHeapArray[MAX_SYSTEM_HEAPS] members are #ifdef'd OUT, so the struct is exactly the 13 D3 std pointers + version + bse. Layout must match the DLL byte-for-byte: version,int + 13 interface ptrs + bse ptr."
+          }
+        ],
+        "portingNotes": "In neo/game/Game.h add `rvBSEManager *bse;` as the last member of gameImport_t (after collisionModelManager). Do NOT add the heapArena/systemHeapArray members (keep them behind #ifdef _RV_MEM_SYS_SUPPORT which we never define). In neo/framework/Common.cpp LoadGameDLL() add `gameImport.bse = ::bse;` after the collisionModelManager line (mirrors REF Common.cpp:2640). Requires a global `rvBSEManager *bse` to exist engine-side — provide a minimal engine-owned rvBSEManager instance whose vtable matches the SDK's 16-slot rvBSEManager (see bse cluster); a non-NULL stub is enough for menu since the DLL only dereferences bse during RunFrame/PlayEffect, not Init."
+      },
+      {
+        "name": "gameExport_t",
+        "vtableChanged": false,
+        "menuCritical": true,
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/game/Game.h (lines 703-712); read in src/framework/Common.cpp:2651-2652 (gameLog ignored)",
+        "sdkFile": "c:/code/id/quake4-sdk/source/game/Game.h (lines 703-712); written in src/game/Game_local.cpp GetGameAPI:119-125",
+        "oursFile": "c:/code/id/DOOM-3/neo/game/Game.h (lines 342-348); read neo/framework/Common.cpp:2682-2683",
+        "newTypes": [
+          "rvGameLog* gameLog (declared in Game.h:621-640)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "gameLog",
+            "change": "added",
+            "detail": "POD struct. One pointer (rvGameLog*) appended after gameEdit. The SDK DLL's GetGameAPI WRITES gameExport.gameLog (Game_local.cpp:124), so the struct returned by the DLL is {version,game,gameEdit,gameLog}. Our engine struct MUST include the gameLog slot so the DLL's write lands in valid memory, even though the engine ignores it."
+          }
+        ],
+        "portingNotes": "In neo/game/Game.h add `rvGameLog *gameLog;` as the last member of gameExport_t (after gameEdit), and add the rvGameLog class declaration (copy verbatim from v37 Game.h:621-640) plus `extern rvGameLog *gameLog;`. Bump GAME_API_VERSION from 8 to 37 in neo/game/Game.h. In neo/framework/Common.cpp keep reading only gameExport.game and gameExport.gameEdit (REF does the same — gameLog is unused engine-side). No code change needed to consume gameLog; the struct slot existing is what matters."
+      }
+    ]
+  },
+  {
+    "cluster": "bse",
+    "summary": "rvBSEManager is the Raven effects (\"Bullet/Beam Surface Effects\") system interface and the only Raven-specific subsystem pointer in gameImport_t when _RV_MEM_SYS_SUPPORT is off. The v37 game DLL is compiled against quake4-sdk/source/bse/BSEInterface.h, whose vtable is: virtual ~rvBSEManager, then 19 pure-virtual methods in this exact order: Init, Shutdown, PlayEffect, ServiceEffect, StopEffect, FreeEffect, EffectDuration, CheckDefForSound, BeginLevelLoad, EndLevelLoad, StartFrame, EndFrame, Filtered, UpdateRateTimes, CanPlayRateLimited. CRITICAL: the SDK vtable is the contract, NOT the REF vtable. REF (_q4ref) added three methods the SDK does NOT have (RenderEffect between ServiceEffect and StopEffect; AddTraceModel/GetTraceModel/FreeTraceModel at the end). Our stub MUST match the SDK header order exactly or the DLL's virtual calls land on the wrong slots. The engine owns the lifecycle: the game DLL never calls Init/Shutdown/BeginLevelLoad/EndLevelLoad/UpdateRateTimes/CheckDefForSound. The only methods the game actually calls are StartFrame, EndFrame, Filtered, CanPlayRateLimited (all inside RunFrame/gameplay) and EffectDuration (from ClientEffect). NONE fire during idGameLocal::Init, decl registration, or the main menu, so a pure no-op stub boots to menu. Wiring mirrors REF: a global rvBSEManager* bse pointing at a static rvBSEManagerLocal stub, gameImport.bse = ::bse in Common.cpp's LoadGameDLL fill, and bse->Init() once before LoadGameDLL. Our neo engine is still GAME_API_VERSION 8 with a gameImport_t that has no bse member; bumping to v37 and adding the bse field to gameImport_t is a prerequisite handled in the Game.h/gameImport cluster, but this cluster delivers the stub class + global + Common.cpp wiring.",
+    "interfaces": [
+      {
+        "name": "rvBSEManager",
+        "oursFile": "(none yet) — add neo/bse/BSEInterface.h (decl) + neo/bse/BSE_Manager.cpp (stub impl + global ::bse); or fold both into one neo/framework/BSE_stub.cpp",
+        "sdkFile": "c:/code/id/quake4-sdk/source/bse/BSEInterface.h",
+        "refFile": "c:/code/id/_q4ref/Quake4Doom/src/bse/BSEInterface.h (decl) + c:/code/id/_q4ref/Quake4Doom/src/bse/BSE_Manager.cpp (real impl; lines 16-17: rvBSEManagerLocal bseManagerLocal / rvBSEManager* bse = &bseManagerLocal)",
+        "vtableChanged": true,
+        "menuCritical": false,
+        "portingNotes": "STUB SPEC (match the SDK header vtable exactly, NOT REF's): create neo/bse/BSEInterface.h containing (a) the effectCategory_t enum and VIEWEFFECT_* enum copied verbatim from quake4-sdk/source/bse/BSEInterface.h, (b) forward decls 'class rvRenderEffectLocal;' and 'struct renderEffect_t;', (c) the abstract class rvBSEManager with the 15 named pure-virtuals in SDK order (virtual ~rvBSEManager; Init; Shutdown; PlayEffect; ServiceEffect; StopEffect; FreeEffect; EffectDuration; CheckDefForSound; BeginLevelLoad; EndLevelLoad; StartFrame; EndFrame; Filtered; UpdateRateTimes; CanPlayRateLimited) — DO NOT add RenderEffect or the three TraceModel methods (those are REF-only and would corrupt the vtable the DLL expects), (d) 'extern rvBSEManager* bse;'. Then create neo/bse/BSE_Manager.cpp defining a concrete 'class rvBSEManagerLocal : public rvBSEManager' that overrides every method as a trivial no-op: bool returns -> Init/Shutdown return true; PlayEffect return false; ServiceEffect return true; EffectDuration return 0.0f; CheckDefForSound return false; Filtered return true; CanPlayRateLimited return false; all void methods empty. Define the globals exactly as REF does: 'rvBSEManagerLocal bseManagerLocal;' and 'rvBSEManager* bse = &bseManagerLocal;'. WIRING (neo/framework/Common.cpp): (1) add '#include \"../bse/BSEInterface.h\"' near the other manager includes; (2) in LoadGameDLL, in the gameImport fill block right after the existing 'gameImport.collisionModelManager = ::collisionModelManager;' (currently line ~2671), add 'gameImport.bse = ::bse;' (requires the gameImport_t struct in Game.h to already carry the bse member from the v37 bump — prerequisite); (3) call 'bse->Init();' once during engine init right after 'uiManager->Init();' (currently line ~3019, mirroring REF Common.cpp:2990), before LoadGameDLL. INIT ORDER: bse->Init() must run before the game DLL is loaded/used, and after declManager/renderModelManager exist (REF's real Init touches them; the no-op stub does not, so ordering is only nominal for us). MENU-CRITICAL CHECK: none. Every game-side bse-> call is on a gameplay/RunFrame path; nothing in idGameLocal::Init, decl registration, or the menu front-end touches bse, so the no-op stub is sufficient to boot to main menu. The conservative return values (Filtered=true, CanPlayRateLimited=false, ServiceEffect=true-as-expired) also keep effect-spawn paths dormant once gameplay starts, avoiding crashes from the unimplemented effect pipeline.",
+        "newTypes": [
+          "rvRenderEffectLocal (Raven render type; forward-declare 'class rvRenderEffectLocal;' — stub never dereferences)",
+          "renderEffect_t (Raven render struct, quake4-sdk renderer/RenderWorld.h:308; forward-declare 'struct renderEffect_t;' for the CheckDefForSound signature)",
+          "effectCategory_t (enum EC_IGNORE/EC_IMPACT/EC_IMPACT_PARTICLES/EC_MAX is DEFINED inside BSEInterface.h, so free with the header)",
+          "rvDeclEffectEdit + declEffectEdit (sibling interface in the same header; NOT in gameImport_t, so not required for boot-to-menu)",
+          "9 bse_* idCVars declared extern in BSEInterface.h (bse_enabled/render/debug/showBounds/physics/debris/scale/singleEffect/maxParticles) — not needed for the bse pointer exchange alone; only define them if an SDK TU you link references them)"
+        ],
+        "methodDeltas": [
+          {
+            "method": "~rvBSEManager",
+            "change": "unchanged-note",
+            "detail": "virtual destructor = vtable slot 0 in SDK header. Stub: empty inline body. Must be present and first or every other slot shifts."
+          },
+          {
+            "method": "Init",
+            "change": "unchanged-note",
+            "detail": "bool Init(void). NOT called by the game DLL — engine calls it (REF Common.cpp:2990 bse->Init() before LoadGameDLL). Stub: return true."
+          },
+          {
+            "method": "Shutdown",
+            "change": "unchanged-note",
+            "detail": "bool Shutdown(void). Engine-owned, not called by game. Stub: return true."
+          },
+          {
+            "method": "PlayEffect",
+            "change": "unchanged-note",
+            "detail": "bool PlayEffect(class rvRenderEffectLocal* def, float time). Gameplay spawn only, never at menu. Stub: return false; never dereference def."
+          },
+          {
+            "method": "ServiceEffect",
+            "change": "unchanged-note",
+            "detail": "bool ServiceEffect(class rvRenderEffectLocal* def, float time). Gameplay only. Stub: return true (treat as expired)."
+          },
+          {
+            "method": "StopEffect",
+            "change": "signature-changed",
+            "detail": "void StopEffect(rvRenderEffectLocal* def). In SDK this is the slot immediately after ServiceEffect. WARNING: REF inserts idRenderModel* RenderEffect(...) BEFORE this slot — do NOT add RenderEffect to our stub or the vtable diverges from the SDK contract. Stub: no-op."
+          },
+          {
+            "method": "FreeEffect",
+            "change": "unchanged-note",
+            "detail": "void FreeEffect(rvRenderEffectLocal* def). Gameplay only. Stub: no-op."
+          },
+          {
+            "method": "EffectDuration",
+            "change": "unchanged-note",
+            "detail": "float EffectDuration(const rvRenderEffectLocal* def). Called from ClientEffect.cpp:308 (gameplay client effects), not menu. Stub: return 0.0f."
+          },
+          {
+            "method": "CheckDefForSound",
+            "change": "unchanged-note",
+            "detail": "bool CheckDefForSound(const renderEffect_t* def). renderEffect_t is a Raven render struct (quake4-sdk renderer/RenderWorld.h:308); forward-declare, never dereference. Not called at menu. Stub: return false."
+          },
+          {
+            "method": "BeginLevelLoad",
+            "change": "unchanged-note",
+            "detail": "void BeginLevelLoad(void). Engine-owned, no game-side call. Stub: no-op."
+          },
+          {
+            "method": "EndLevelLoad",
+            "change": "unchanged-note",
+            "detail": "void EndLevelLoad(void). Engine-owned, no game-side call. Stub: no-op."
+          },
+          {
+            "method": "StartFrame",
+            "change": "unchanged-note",
+            "detail": "void StartFrame(void). Game calls it in idGameLocal::RunFrame (Game_local.cpp:3550, gated on isLastPredictFrame) — gameplay only. Stub: no-op."
+          },
+          {
+            "method": "EndFrame",
+            "change": "unchanged-note",
+            "detail": "void EndFrame(void). Game calls it in RunFrame (Game_local.cpp:3679) — gameplay only. Stub: no-op."
+          },
+          {
+            "method": "Filtered",
+            "change": "unchanged-note",
+            "detail": "bool Filtered(const char* name, effectCategory_t category). Game calls before playing effects (Entity.cpp/Game_local.cpp) — gameplay only. effectCategory_t comes from BSEInterface.h. Stub: return true ('filter out / do not play')."
+          },
+          {
+            "method": "UpdateRateTimes",
+            "change": "unchanged-note",
+            "detail": "void UpdateRateTimes(void). Not called by game DLL (REF calls it internally from StartFrame). Stub: no-op."
+          },
+          {
+            "method": "CanPlayRateLimited",
+            "change": "unchanged-note",
+            "detail": "bool CanPlayRateLimited(effectCategory_t category). Game calls in Entity.cpp:5994/6034 etc — gameplay only. Stub: return false (rate-limited out) keeps effect-spawn paths dormant."
+          }
+        ]
+      }
+    ]
+  }
+]

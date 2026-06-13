@@ -318,7 +318,33 @@ extern idGameEdit *				gameEdit;
 ===============================================================================
 */
 
-const int GAME_API_VERSION		= 8;
+// RAVEN BEGIN -- Quake 4 game-logging interface, declared so gameExport_t can carry it.
+class rvGameLog {
+public:
+	virtual				~rvGameLog( void ) {}
+
+	virtual void		Init		( void ) = 0;
+	virtual void		Shutdown	( void ) = 0;
+
+	virtual void		BeginFrame	( int time ) = 0;
+	virtual void		EndFrame	( void ) = 0;
+
+	virtual	void		Set			( const char* keyword, int value ) = 0;
+	virtual void		Set			( const char* keyword, float value ) = 0;
+	virtual void		Set			( const char* keyword, const char* value ) = 0;
+	virtual void		Set			( const char* keyword, bool value ) = 0;
+
+	virtual void		Add			( const char* keyword, int value ) = 0;
+	virtual void		Add			( const char* keyword, float value ) = 0;
+};
+extern rvGameLog *				gameLog;
+
+// Quake 4 (Raven) Beam System Effects manager, passed across the game interface.
+class rvBSEManager;
+// RAVEN END
+
+// Quake 4 1.4.2 SDK game API (was 8 for DOOM 3).
+const int GAME_API_VERSION		= 37;
 
 typedef struct {
 
@@ -336,6 +362,7 @@ typedef struct {
 	idDeclManager *				declManager;			// declaration manager
 	idAASFileManager *			AASFileManager;			// AAS file manager
 	idCollisionModelManager *	collisionModelManager;	// collision model manager
+	rvBSEManager *				bse;					// RAVEN: Beam System Effects (particles)
 
 } gameImport_t;
 
@@ -344,6 +371,7 @@ typedef struct {
 	int							version;				// API version
 	idGame *					game;					// interface to run the game
 	idGameEdit *				gameEdit;				// interface for in-game editing
+	rvGameLog *					gameLog;				// RAVEN: game logging interface
 
 } gameExport_t;
 

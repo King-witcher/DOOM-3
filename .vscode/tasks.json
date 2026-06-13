@@ -41,6 +41,41 @@
             "problemMatcher": "$msCompile",
             "presentation": { "reveal": "always", "panel": "shared", "clear": true },
             "group": "build"
+        },
+
+        // ---- Quake 4 -------------------------------------------------------
+        // build-quake4.ps1 builds only the engine (idlib + curllib + doomdll,
+        // NOT our game.vcxproj) and deploys Raven's retail Quake 4 gamex86.dll
+        // (GAME_API_VERSION 37) next to DOOM3.exe. Launched by the "Quake 4"
+        // configs in launch.json, which point fs_basepath at the run\q4 junction
+        // (-> the Quake 4 install) so the engine reads q4base\*.pk4 assets.
+        {
+            "label": "msbuild: quake4 (Debug)",
+            "type": "process",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", "${workspaceFolder}\\.vscode\\build-quake4.ps1",
+                "-Root", "${workspaceFolder}",
+                "-Config", "Debug"
+            ],
+            "problemMatcher": "$msCompile",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "group": "build"
+        },
+        {
+            "label": "msbuild: quake4 (Release)",
+            "type": "process",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", "${workspaceFolder}\\.vscode\\build-quake4.ps1",
+                "-Root", "${workspaceFolder}",
+                "-Config", "Release"
+            ],
+            "problemMatcher": "$msCompile",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "group": "build"
         }
     ]
 }

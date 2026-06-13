@@ -1,0 +1,58 @@
+{
+    // Build + run Doom 3 from VS Code.
+    //
+    // Requires the C/C++ extension (ms-vscode.cpptools) for the cppvsdbg debugger.
+    //
+    // Doom 3 renders with OpenGL (not Direct3D); input/sound use DirectInput8 +
+    // DirectSound, which ship in the modern Windows SDK. The legacy DirectX SDK
+    // (June 2010) is NOT needed anymore -- DxErr was replaced by a local shim
+    // and the one EAX GUID is defined in snd_system.cpp.
+    //
+    // NO QVM: unlike Quake III, Doom 3 has no bytecode VM. Game logic is always
+    // a native DLL (gamex86.dll) -- there is nothing to "interpret", so there is
+    // only one run mode, native.
+    //
+    // Dev workflow (mirrors the run\dev mod of the Quake III sibling):
+    //   run\base   -> symlink to the retail Doom 3 install (the game assets)
+    //   run\dev    -> our freshly built gamex86.dll (deployed by build-doom3.ps1)
+    //
+    //   fs_basepath = run, fs_game = dev makes the engine search run\dev before
+    //   run\base, so OUR game DLL overrides the retail base\gamex86.dll. The
+    //   preLaunchTask builds AND deploys the DLL into run\dev before launching.
+    //   si_pure 0 lets the engine load our loose (non-pak) DLL.
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "DOOM 3 — Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "msbuild: doom3 (Debug)",
+            "program": "${workspaceFolder}\\build\\Win32\\Debug\\DOOM3.exe",
+            "cwd": "${workspaceFolder}\\build\\Win32\\Debug",
+            "args": [
+                "+set", "fs_basepath", "${workspaceFolder}\\run",
+                "+set", "fs_game", "dev",
+                "+set", "com_allowConsole", "1",
+                "+set", "si_pure", "0",
+                "+set", "developer", "1"
+            ],
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        },
+        {
+            "name": "DOOM 3 — Release",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "msbuild: doom3 (Release)",
+            "program": "${workspaceFolder}\\build\\Win32\\Release\\DOOM3.exe",
+            "cwd": "${workspaceFolder}\\build\\Win32\\Release",
+            "args": [
+                "+set", "fs_basepath", "${workspaceFolder}\\run",
+                "+set", "fs_game", "dev",
+                "+set", "si_pure", "0"
+            ],
+            "console": "integratedTerminal",
+            "stopAtEntry": false
+        }
+    ]
+}

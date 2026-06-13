@@ -27,6 +27,9 @@ If you have questions concerning this license or the applicable additional terms
 */
 
 // This is real evil but allows the code to inspect arbitrary class variables.
+// Modern MSVC's STL headers (<xkeycheck.h>) reject macroizing keywords unless
+// this escape hatch is defined first.
+#define _ALLOW_KEYWORD_MACROS
 #define private		public
 #define protected	public
 

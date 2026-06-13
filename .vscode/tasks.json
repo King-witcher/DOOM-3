@@ -1,0 +1,46 @@
+{
+    // Build tasks for Doom 3 (original 2011 GPL source).
+    //
+    // Unlike Quake III (C + QVMs), Doom 3 is C++: the engine DOOM3.exe and the
+    // game logic gamex86.dll are produced by MSBuild from the .vcxproj files in
+    // neo\. The actual compiler invocation lives in .vscode\build-doom3.ps1,
+    // which builds only the projects we need (skipping MayaImport, which needs
+    // the Maya SDK) and overrides the ancient v100 toolset to v145.
+    //
+    // Output (relative to this repo root):
+    //   build\Win32\Debug\DOOM3.exe      the engine
+    //   build\Win32\Debug\gamex86.dll    the base game logic
+    //
+    // launch.json points at the two composite tasks at the bottom.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "msbuild: doom3 (Debug)",
+            "type": "process",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", "${workspaceFolder}\\.vscode\\build-doom3.ps1",
+                "-Root", "${workspaceFolder}",
+                "-Config", "Debug"
+            ],
+            "problemMatcher": "$msCompile",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "group": { "kind": "build", "isDefault": true }
+        },
+        {
+            "label": "msbuild: doom3 (Release)",
+            "type": "process",
+            "command": "powershell.exe",
+            "args": [
+                "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-File", "${workspaceFolder}\\.vscode\\build-doom3.ps1",
+                "-Root", "${workspaceFolder}",
+                "-Config", "Release"
+            ],
+            "problemMatcher": "$msCompile",
+            "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+            "group": "build"
+        }
+    ]
+}

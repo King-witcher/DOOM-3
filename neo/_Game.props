@@ -15,8 +15,10 @@
       <OutputFile>$(OutDir)gamex86.dll</OutputFile>
       <ModuleDefinitionFile>.\game\game.def</ModuleDefinitionFile>
     </Link>
-    <PreBuildEvent>
-      <Command>..\build\Win32\"$(Configuration)"\TypeInfo.exe</Command>
-    </PreBuildEvent>
+    <!-- The pre-build step ran TypeInfo.exe to regenerate GameTypeInfo.h, which
+         is only #included when ID_DEBUG_MEMORY is defined (the "memory log"
+         config). Normal builds use the NoGameTypeInfo.h stub, and TypeInfo.exe
+         can't run without retail game data (it needs default.cfg). So the
+         codegen is disabled here. -->
   </ItemDefinitionGroup>
 </Project>

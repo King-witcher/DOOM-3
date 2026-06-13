@@ -150,44 +150,37 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command><!-- TypeInfo.exe codegen disabled: GameTypeInfo.h is only used by the ID_DEBUG_MEMORY config and TypeInfo.exe needs retail game data to run. --></Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command><!-- TypeInfo.exe codegen disabled: GameTypeInfo.h is only used by the ID_DEBUG_MEMORY config and TypeInfo.exe needs retail game data to run. --></Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug with inlines and memory log|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command><!-- TypeInfo.exe codegen disabled: GameTypeInfo.h is only used by the ID_DEBUG_MEMORY config and TypeInfo.exe needs retail game data to run. --></Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Debug|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command><!-- TypeInfo.exe codegen disabled: GameTypeInfo.h is only used by the ID_DEBUG_MEMORY config and TypeInfo.exe needs retail game data to run. --></Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Debug with inlines|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command><!-- TypeInfo.exe codegen disabled: GameTypeInfo.h is only used by the ID_DEBUG_MEMORY config and TypeInfo.exe needs retail game data to run. --></Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Dedicated Release|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command><!-- TypeInfo.exe codegen disabled: GameTypeInfo.h is only used by the ID_DEBUG_MEMORY config and TypeInfo.exe needs retail game data to run. --></Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <PreBuildEvent>
-      <Command>cd $(SolutionDir)\..
-"build\Win32\$(Configuration)\TypeInfo.exe"</Command>
+      <Command><!-- TypeInfo.exe codegen disabled: GameTypeInfo.h is only used by the ID_DEBUG_MEMORY config and TypeInfo.exe needs retail game data to run. --></Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

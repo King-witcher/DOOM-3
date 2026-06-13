@@ -28,8 +28,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "../../idlib/precompiled.h"
 #pragma hdrstop
 
-// DirectX SDK
-#include <DxErr.h>
+// Local shim replacing the legacy DirectX SDK <DxErr.h> (see the file header).
+#include "DxErr.h"
 
 #include <ks.h>
 #include <ksmedia.h>

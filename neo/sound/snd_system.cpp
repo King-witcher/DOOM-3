@@ -88,6 +88,19 @@ bool idSoundSystemLocal::useOpenAL = false;
 bool idSoundSystemLocal::useEAXReverb = false;
 int idSoundSystemLocal::EAXAvailable = -1;
 
+#if ID_OPENAL
+// Storage for the EAX GUIDs the sound code references (eax4.h declares them
+// extern via DEFINE_GUID). They used to come from eaxguid.lib in the legacy
+// DirectX SDK; defining them here lets us drop that lib. Values copied verbatim
+// from openal/include/eax4.h.
+extern "C" const GUID EAXPROPERTYID_EAX40_Source = {
+	0x1b86b823, 0x22df, 0x4eae, { 0x8b, 0x3c, 0x12, 0x78, 0xce, 0x54, 0x42, 0x27 }
+};
+extern "C" const GUID EAXPROPERTYID_EAX40_FXSlot0 = {
+	0xc4d79f1e, 0xf1ac, 0x436b, { 0xa8, 0x1d, 0xa7, 0x38, 0xe7, 0x04, 0x54, 0x69 }
+};
+#endif
+
 idSoundSystemLocal	soundSystemLocal;
 idSoundSystem	*soundSystem  = &soundSystemLocal;
 

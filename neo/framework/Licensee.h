@@ -43,7 +43,7 @@ If you have questions concerning this license or the applicable additional terms
 #ifdef ID_DEMO_BUILD
 	#define BASE_GAMEDIR					"demo"
 #else
-	#define	BASE_GAMEDIR					"base"
+	#define	BASE_GAMEDIR					"q4base"		// RAVEN: Quake 4 base game dir (was "base" for DOOM 3). Fixes OSPathToRelativePath, which strips BASE_GAMEDIR from OS paths.
 #endif
 
 // filenames

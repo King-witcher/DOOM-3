@@ -24,7 +24,11 @@ $msb = "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bi
 $neo = Join-Path $Root "neo"
 
 # Modern toolset + an installed Windows SDK (same as build-doom3.ps1).
-$props = "/p:Configuration=$Config;Platform=Win32;PlatformToolset=v145;WindowsTargetPlatformVersion=10.0.26100.0"
+# BuildProjectReferences=false keeps MSBuild from dragging in typeinfo.vcxproj
+# (its idCommonLocal stub no longer matches our v37 idCommon, and its
+# GameTypeInfo.h output is only used by the ID_DEBUG_MEMORY config). idlib and
+# curllib are built explicitly above, so doomdll still links fine.
+$props = "/p:Configuration=$Config;Platform=Win32;PlatformToolset=v145;WindowsTargetPlatformVersion=10.0.26100.0;BuildProjectReferences=false"
 
 # idlib + curllib are static libs the engine links; doomdll is DOOM3.exe.
 $projects = @(

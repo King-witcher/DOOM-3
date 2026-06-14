@@ -69,8 +69,18 @@ typedef enum {
 	DECL_SOUND,
 	DECL_ENTITYDEF,
 	DECL_MODELDEF,
-	DECL_FX,
-	DECL_PARTICLE,
+// RAVEN BEGIN
+// jscott: added new decls
+	DECL_MATERIALTYPE,
+	DECL_LIPSYNC,
+	DECL_PLAYBACK,
+	DECL_EFFECT,
+// rjohnson: camera is now contained in a def for frame commands
+	DECL_CAMERADEF,
+// jscott: don't use these
+//	DECL_FX,
+//	DECL_PARTICLE,
+// RAVEN END
 	DECL_AF,
 	DECL_PDA,
 	DECL_VIDEO,
@@ -80,6 +90,15 @@ typedef enum {
 	DECL_MAPDEF,
 
 	// new decl types can be added here
+	DECL_PLAYER_MODEL,
+
+	// RAVEN/engine-private: dropped from the Quake 4 SDK declType_t (the game
+	// uses BSE/.fx), but the DOOM 3 engine's particle/fx code (Model_prt.cpp,
+	// Material.cpp deform stages, DeclParticle.cpp, DeclFX.cpp) still references
+	// them. Appended at the END so the SDK enum VALUES the retail DLL passes
+	// stay unchanged; the retail game never sends these.
+	DECL_FX,
+	DECL_PARTICLE,
 
 	DECL_MAX_TYPES			= 32
 } declType_t;
@@ -244,13 +263,26 @@ ID_INLINE idDecl *idDeclAllocator( void ) {
 
 
 class idMaterial;
+class idDeclTable;
 class idDeclSkin;
 class idSoundShader;
+
+// RAVEN BEGIN
+// jscott: new decl types
+class rvDeclMatType;
+class rvDeclLipSync;
+class rvDeclPlayback;
+class rvDeclEffect;
+class rvDeclPlayerModel;
+class rvDeclPlaybackData;
+// RAVEN END
 
 class idDeclManager {
 public:
 	virtual					~idDeclManager( void ) {}
 
+	virtual void			SetInsideLoad( bool var ) = 0;
+	virtual bool			GetInsideLoad( void ) = 0;
 	virtual void			Init( void ) = 0;
 	virtual void			Shutdown( void ) = 0;
 	virtual void			Reload( bool force ) = 0;
@@ -258,11 +290,24 @@ public:
 	virtual void			BeginLevelLoad() = 0;
 	virtual void			EndLevelLoad() = 0;
 
-							// Registers a new decl type.
+							// Registers a new decl type. RV_BINARYDECLS is OFF in retail, so the
+							// single-allocator form (no stream allocator) is the live slot.
 	virtual void			RegisterDeclType( const char *typeName, declType_t type, idDecl *(*allocator)( void ) ) = 0;
 
+							// RV_SINGLE_DECL_FILE is ON in the retail build -> these 5 slots EXIST
+							// in the vtable, BETWEEN RegisterDeclType and RegisterDeclFolderWrapper.
+							// Omitting them shifted every later idDeclManager slot (port bug).
+	virtual void			StartLoadingDecls() = 0;
+	virtual void			FinishLoadingDecls() = 0;
+	virtual void			LoadDeclsFromFile() = 0;
+	virtual void			WriteDeclFile() = 0;
+	virtual void			FlushDecls() = 0;
+
+// RAVEN BEGIN
+// jscott: for timing
 							// Registers a new folder with decl files.
-	virtual void			RegisterDeclFolder( const char *folder, const char *extension, declType_t defaultType ) = 0;
+	virtual void			RegisterDeclFolderWrapper( const char *folder, const char *extension, declType_t defaultType, bool unique = false, bool norecurse = false ) = 0;
+// RAVEN END
 
 							// Returns a checksum for all loaded decl text.
 	virtual int				GetChecksum( void ) const = 0;
@@ -279,7 +324,7 @@ public:
 							// If makeDefault is true, a default decl of appropriate type will be created
 							// if an explicit one isn't found. If makeDefault is false, NULL will be returned
 							// if the decl wasn't explcitly defined.
-	virtual const idDecl *	FindType( declType_t type, const char *name, bool makeDefault = true ) = 0;
+	virtual const idDecl *	FindType( declType_t type, const char *name, bool makeDefault = true, bool noCaching = false ) = 0;
 
 	virtual const idDecl*	FindDeclWithoutParsing( declType_t type, const char *name, bool makeDefault = true ) = 0;
 
@@ -310,14 +355,50 @@ public:
 
 	virtual void			WritePrecacheCommands( idFile *f ) = 0;
 
+// RAVEN BEGIN
+// jscott: precache any guide (template) files
+	virtual void					ParseGuides( void ) = 0;
+	virtual	void					ShutdownGuides( void ) = 0;
+	virtual bool					EvaluateGuide( idStr &name, idLexer *src, idStr &definition ) = 0;
+	virtual bool					EvaluateInlineGuide( idStr &name, idStr &definition ) = 0;
+// RAVEN END
 									// Convenience functions for specific types.
 	virtual	const idMaterial *		FindMaterial( const char *name, bool makeDefault = true ) = 0;
+	virtual const idDeclTable *		FindTable( const char *name, bool makeDefault = true ) = 0;
 	virtual const idDeclSkin *		FindSkin( const char *name, bool makeDefault = true ) = 0;
 	virtual const idSoundShader *	FindSound( const char *name, bool makeDefault = true ) = 0;
+// RAVEN BEGIN
+// jscott: for new Raven decls
+	virtual const rvDeclMatType *	FindMaterialType( const char *name, bool makeDefault = true ) = 0;
+	virtual	const rvDeclLipSync *	FindLipSync( const char *name, bool makeDefault = true ) = 0;
+	virtual	const rvDeclPlayback *	FindPlayback( const char *name, bool makeDefault = true ) = 0;
+	virtual	const rvDeclEffect *	FindEffect( const char *name, bool makeDefault = true ) = 0;
+// RAVEN END
 
 	virtual const idMaterial *		MaterialByIndex( int index, bool forceParse = true ) = 0;
+	virtual const idDeclTable *		TableByIndex( int index, bool forceParse = true ) = 0;
 	virtual const idDeclSkin *		SkinByIndex( int index, bool forceParse = true ) = 0;
 	virtual const idSoundShader *	SoundByIndex( int index, bool forceParse = true ) = 0;
+// RAVEN BEGIN
+// jscott: for new Raven decls
+	virtual const rvDeclMatType *	MaterialTypeByIndex( int index, bool forceParse = true ) = 0;
+	virtual const rvDeclLipSync *	LipSyncByIndex( int index, bool forceParse = true ) = 0;
+	virtual	const rvDeclPlayback *	PlaybackByIndex( int index, bool forceParse = true ) = 0;
+	virtual const rvDeclEffect *	EffectByIndex( int index, bool forceParse = true ) = 0;
+
+	virtual void					StartPlaybackRecord( rvDeclPlayback *playback ) = 0;
+	virtual bool					SetPlaybackData( rvDeclPlayback *playback, int now, int control, class rvDeclPlaybackData *pbd ) = 0;
+	virtual bool					GetPlaybackData( const rvDeclPlayback *playback, int control, int now, int last, class rvDeclPlaybackData *pbd ) = 0;
+	virtual bool					FinishPlayback( rvDeclPlayback *playback ) = 0;
+
+	virtual	idStr					GetNewName( declType_t type, const char *base ) = 0;
+	virtual	const char *			GetDeclTypeName( declType_t type ) = 0;
+	virtual size_t					ListDeclSummary( const idCmdArgs &args ) = 0;
+	virtual void					RemoveDeclFile( const char *file ) = 0;
+// scork: Validation call for detailed error-reporting
+	virtual bool					Validate( declType_t type, int iIndex, idStr &strReportTo ) = 0;
+	virtual idDecl *				AllocateDecl( declType_t type ) = 0;
+// RAVEN END
 };
 
 extern idDeclManager *		declManager;

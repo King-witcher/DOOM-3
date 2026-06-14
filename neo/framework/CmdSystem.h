@@ -96,15 +96,23 @@ public:
 
 						// Base for path/file auto-completion.
 	virtual void		ArgCompletion_FolderExtension( const idCmdArgs &args, void(*callback)( const char *s ), const char *folder, bool stripFolder, ... ) = 0;
+
+	virtual void		ArgCompletion_Models( const idCmdArgs &args, void(*callback)( const char *s ), bool strogg, bool marine ) = 0;
+
 						// Base for decl name auto-completion.
 	virtual void		ArgCompletion_DeclName( const idCmdArgs &args, void(*callback)( const char *s ), int type ) = 0;
 
 						// Adds to the command buffer in tokenized form ( CMD_EXEC_NOW or CMD_EXEC_APPEND only )
 	virtual void		BufferCommandArgs( cmdExecution_t exec, const idCmdArgs &args ) = 0;
 
+						// Restore these cvars when the next reloadEngine is done
+	virtual void		SetupCVarsForReloadEngine( const idDict &dict ) = 0;
 						// Setup a reloadEngine to happen on next command run, and give a command to execute after reload
 	virtual void		SetupReloadEngine( const idCmdArgs &args ) = 0;
 	virtual bool		PostReloadEngine( void ) = 0;
+
+						// There is a cache of the last completion operation that may need to be cleared sometimes
+	virtual void		ClearCompletion( void ) = 0;
 
 						// Default argument completion functions.
 	static void			ArgCompletion_Boolean( const idCmdArgs &args, void(*callback)( const char *s ) );
@@ -115,11 +123,26 @@ public:
 	template<int type>
 	static void			ArgCompletion_Decl( const idCmdArgs &args, void(*callback)( const char *s ) );
 	static void			ArgCompletion_FileName( const idCmdArgs &args, void(*callback)( const char *s ) );
+
+// RAVEN BEGIN
+// mekberg: added
+	static void			ArgCompletion_GuiName( const idCmdArgs &args, void(*callback)( const char *s ) );
+// RAVEN END
+
 	static void			ArgCompletion_MapName( const idCmdArgs &args, void(*callback)( const char *s ) );
 	static void			ArgCompletion_ModelName( const idCmdArgs &args, void(*callback)( const char *s ) );
 	static void			ArgCompletion_SoundName( const idCmdArgs &args, void(*callback)( const char *s ) );
 	static void			ArgCompletion_ImageName( const idCmdArgs &args, void(*callback)( const char *s ) );
 	static void			ArgCompletion_VideoName( const idCmdArgs &args, void(*callback)( const char *s ) );
+	static void			ArgCompletion_ForceModel( const idCmdArgs &args, void(*callback)( const char *s ) );
+	static void			ArgCompletion_ForceModelStrogg( const idCmdArgs &args, void(*callback)( const char *s ) );
+	static void			ArgCompletion_ForceModelMarine( const idCmdArgs &args, void(*callback)( const char *s ) );
+// RAVEN BEGIN
+// nrausch: standalone video support
+	static void			ArgCompletion_StandaloneVideoName( const idCmdArgs &args, void(*callback)( const char *s ) );
+// rjohnson: netdemo completion
+	static void			ArgCompletion_NetDemoName( const idCmdArgs &args, void(*callback)( const char *s ) );
+// RAVEN END
 	static void			ArgCompletion_ConfigName( const idCmdArgs &args, void(*callback)( const char *s ) );
 	static void			ArgCompletion_SaveGame( const idCmdArgs &args, void(*callback)( const char *s ) );
 	static void			ArgCompletion_DemoName( const idCmdArgs &args, void(*callback)( const char *s ) );
@@ -153,6 +176,13 @@ ID_INLINE void idCmdSystem::ArgCompletion_FileName( const idCmdArgs &args, void(
 	cmdSystem->ArgCompletion_FolderExtension( args, callback, "/", true, "", NULL );
 }
 
+// RAVEN BEGIN
+// mekberg: added
+ID_INLINE void idCmdSystem::ArgCompletion_GuiName( const idCmdArgs &args, void(*callback)( const char *s ) ) {
+	cmdSystem->ArgCompletion_FolderExtension( args, callback, "guis/", false, ".gui", NULL );
+}
+// RAVEN END
+
 ID_INLINE void idCmdSystem::ArgCompletion_MapName( const idCmdArgs &args, void(*callback)( const char *s ) ) {
 	cmdSystem->ArgCompletion_FolderExtension( args, callback, "maps/", true, ".map", NULL );
 }
@@ -172,6 +202,31 @@ ID_INLINE void idCmdSystem::ArgCompletion_ImageName( const idCmdArgs &args, void
 ID_INLINE void idCmdSystem::ArgCompletion_VideoName( const idCmdArgs &args, void(*callback)( const char *s ) ) {
 	cmdSystem->ArgCompletion_FolderExtension( args, callback, "video/", false, ".roq", NULL );
 }
+
+ID_INLINE void idCmdSystem::ArgCompletion_ForceModel( const idCmdArgs &args, void(*callback)( const char *s ) ) {
+	cmdSystem->ArgCompletion_Models( args, callback, true, true );
+}
+
+ID_INLINE void idCmdSystem::ArgCompletion_ForceModelStrogg( const idCmdArgs &args, void(*callback)( const char *s ) ) {
+	cmdSystem->ArgCompletion_Models( args, callback, true, false );
+}
+
+ID_INLINE void idCmdSystem::ArgCompletion_ForceModelMarine( const idCmdArgs &args, void(*callback)( const char *s ) ) {
+	cmdSystem->ArgCompletion_Models( args, callback, false, true );
+}
+
+// RAVEN BEGIN
+// nrausch: standalone video support
+ID_INLINE void idCmdSystem::ArgCompletion_StandaloneVideoName( const idCmdArgs &args, void(*callback)( const char *s ) ) {
+	cmdSystem->ArgCompletion_FolderExtension( args, callback, "video/", false, ".wmv", NULL );
+}
+
+// rjohnson: netdemo completion
+extern char netDemoExtension[16];
+ID_INLINE void idCmdSystem::ArgCompletion_NetDemoName( const idCmdArgs &args, void(*callback)( const char *s ) ) {
+	cmdSystem->ArgCompletion_FolderExtension( args, callback, "demos/", true, netDemoExtension, NULL );
+}
+// RAVEN END
 
 ID_INLINE void idCmdSystem::ArgCompletion_ConfigName( const idCmdArgs &args, void(*callback)( const char *s ) ) {
 	cmdSystem->ArgCompletion_FolderExtension( args, callback, "/", true, ".cfg", NULL );

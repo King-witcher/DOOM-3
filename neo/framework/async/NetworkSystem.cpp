@@ -37,10 +37,18 @@ idNetworkSystem *	networkSystem = &networkSystemLocal;
 
 /*
 ==================
+idNetworkSystem::Shutdown
+==================
+*/
+void idNetworkSystem::Shutdown( void ) {
+}
+
+/*
+==================
 idNetworkSystem::ServerSendReliableMessage
 ==================
 */
-void idNetworkSystem::ServerSendReliableMessage( int clientNum, const idBitMsg &msg ) {
+void idNetworkSystem::ServerSendReliableMessage( int clientNum, const idBitMsg &msg, bool inhibitRepeater ) {
 	if ( idAsyncNetwork::server.IsActive() ) {
 		idAsyncNetwork::server.SendReliableGameMessage( clientNum, msg );
 	}
@@ -51,7 +59,7 @@ void idNetworkSystem::ServerSendReliableMessage( int clientNum, const idBitMsg &
 idNetworkSystem::ServerSendReliableMessageExcluding
 ==================
 */
-void idNetworkSystem::ServerSendReliableMessageExcluding( int clientNum, const idBitMsg &msg ) {
+void idNetworkSystem::ServerSendReliableMessageExcluding( int clientNum, const idBitMsg &msg, bool inhibitRepeater ) {
 	if ( idAsyncNetwork::server.IsActive() ) {
 		idAsyncNetwork::server.SendReliableGameMessageExcluding( clientNum, msg );
 	}
@@ -65,18 +73,6 @@ idNetworkSystem::ServerGetClientPing
 int idNetworkSystem::ServerGetClientPing( int clientNum ) {
 	if ( idAsyncNetwork::server.IsActive() ) {
 		return idAsyncNetwork::server.GetClientPing( clientNum );
-	}
-	return 0;
-}
-
-/*
-==================
-idNetworkSystem::ServerGetClientPrediction
-==================
-*/
-int idNetworkSystem::ServerGetClientPrediction( int clientNum ) {
-	if ( idAsyncNetwork::server.IsActive() ) {
-		return idAsyncNetwork::server.GetClientPrediction( clientNum );
 	}
 	return 0;
 }

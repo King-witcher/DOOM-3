@@ -177,23 +177,31 @@ class idDeclManagerLocal : public idDeclManager {
 	friend class idDeclLocal;
 
 public:
+	virtual void				SetInsideLoad( bool var ) { insideLevelLoad = var; }
+	virtual bool				GetInsideLoad( void ) { return insideLevelLoad; }
 	virtual void				Init( void );
 	virtual void				Shutdown( void );
 	virtual void				Reload( bool force );
 	virtual void				BeginLevelLoad();
 	virtual void				EndLevelLoad();
 	virtual void				RegisterDeclType( const char *typeName, declType_t type, idDecl *(*allocator)( void ) );
-	virtual void				RegisterDeclFolder( const char *folder, const char *extension, declType_t defaultType );
+	// RV_SINGLE_DECL_FILE slots -- no-op for boot-to-menu (RV_BINARYDECLS is OFF, so the
+	// game never drives the single-file load path during Init). Present for vtable alignment.
+	virtual void				StartLoadingDecls() {}
+	virtual void				FinishLoadingDecls() {}
+	virtual void				LoadDeclsFromFile() {}
+	virtual void				WriteDeclFile() {}
+	virtual void				FlushDecls() {}
+	virtual void				RegisterDeclFolderWrapper( const char *folder, const char *extension, declType_t defaultType, bool unique = false, bool norecurse = false );
 	virtual int					GetChecksum( void ) const;
 	virtual int					GetNumDeclTypes( void ) const;
-	virtual int					GetNumDecls( declType_t type );
 	virtual const char *		GetDeclNameFromType( declType_t type ) const;
 	virtual declType_t			GetDeclTypeFromName( const char *typeName ) const;
-	virtual const idDecl *		FindType( declType_t type, const char *name, bool makeDefault = true );
-	virtual const idDecl *		DeclByIndex( declType_t type, int index, bool forceParse = true );
-
+	virtual const idDecl *		FindType( declType_t type, const char *name, bool makeDefault = true, bool noCaching = false );
 	virtual const idDecl*		FindDeclWithoutParsing( declType_t type, const char *name, bool makeDefault = true );
 	virtual void				ReloadFile( const char* filename, bool force );
+	virtual int					GetNumDecls( declType_t type );
+	virtual const idDecl *		DeclByIndex( declType_t type, int index, bool forceParse = true );
 
 	virtual void				ListType( const idCmdArgs &args, declType_t type );
 	virtual void				PrintType( const idCmdArgs &args, declType_t type );
@@ -206,15 +214,56 @@ public:
 	virtual void				MediaPrint( const char *fmt, ... ) id_attribute((format(printf,2,3)));
 	virtual void				WritePrecacheCommands( idFile *f );
 
+// RAVEN BEGIN
+// jscott: precache any guide (template) files
+	virtual void					ParseGuides( void ) {}
+	virtual	void					ShutdownGuides( void ) {}
+	virtual bool					EvaluateGuide( idStr &name, idLexer *src, idStr &definition ) { return false; }
+	virtual bool					EvaluateInlineGuide( idStr &name, idStr &definition ) { return false; }
+// RAVEN END
+
 	virtual const idMaterial *		FindMaterial( const char *name, bool makeDefault = true );
+	virtual const idDeclTable *		FindTable( const char *name, bool makeDefault = true );
 	virtual const idDeclSkin *		FindSkin( const char *name, bool makeDefault = true );
 	virtual const idSoundShader *	FindSound( const char *name, bool makeDefault = true );
+// RAVEN BEGIN
+// jscott: for new Raven decls
+	virtual const rvDeclMatType *	FindMaterialType( const char *name, bool makeDefault = true );
+	virtual	const rvDeclLipSync *	FindLipSync( const char *name, bool makeDefault = true );
+	virtual	const rvDeclPlayback *	FindPlayback( const char *name, bool makeDefault = true );
+	virtual	const rvDeclEffect *	FindEffect( const char *name, bool makeDefault = true );
+// RAVEN END
 
 	virtual const idMaterial *		MaterialByIndex( int index, bool forceParse = true );
+	virtual const idDeclTable *		TableByIndex( int index, bool forceParse = true );
 	virtual const idDeclSkin *		SkinByIndex( int index, bool forceParse = true );
 	virtual const idSoundShader *	SoundByIndex( int index, bool forceParse = true );
+// RAVEN BEGIN
+// jscott: for new Raven decls
+	virtual const rvDeclMatType *	MaterialTypeByIndex( int index, bool forceParse = true );
+	virtual const rvDeclLipSync *	LipSyncByIndex( int index, bool forceParse = true );
+	virtual	const rvDeclPlayback *	PlaybackByIndex( int index, bool forceParse = true );
+	virtual const rvDeclEffect *	EffectByIndex( int index, bool forceParse = true );
+
+	virtual void					StartPlaybackRecord( rvDeclPlayback *playback ) {}
+	virtual bool					SetPlaybackData( rvDeclPlayback *playback, int now, int control, class rvDeclPlaybackData *pbd ) { return false; }
+	virtual bool					GetPlaybackData( const rvDeclPlayback *playback, int control, int now, int last, class rvDeclPlaybackData *pbd ) { return false; }
+	virtual bool					FinishPlayback( rvDeclPlayback *playback ) { return false; }
+
+	virtual	idStr					GetNewName( declType_t type, const char *base );
+	virtual	const char *			GetDeclTypeName( declType_t type );
+	virtual size_t					ListDeclSummary( const idCmdArgs &args ) { return 0; }
+	virtual void					RemoveDeclFile( const char *file ) {}
+// scork: Validation call for detailed error-reporting
+	virtual bool					Validate( declType_t type, int iIndex, idStr &strReportTo ) { return true; }
+	virtual idDecl *				AllocateDecl( declType_t type );
+// RAVEN END
 
 public:
+	// Internal (non-virtual) helper kept so engine-side Init() and other DOOM3
+	// callers can still register folders. RegisterDeclFolderWrapper delegates here.
+	void						RegisterDeclFolder( const char *folder, const char *extension, declType_t defaultType );
+
 	static void					MakeNameCanonical( const char *name, char *result, int maxLength );
 	idDeclLocal *				FindTypeWithoutParsing( declType_t type, const char *name, bool makeDefault = true );
 
@@ -810,8 +859,7 @@ void idDeclManagerLocal::Init( void ) {
 
 	RegisterDeclType( "entityDef",			DECL_ENTITYDEF,		idDeclAllocator<idDeclEntityDef> );
 	RegisterDeclType( "mapDef",				DECL_MAPDEF,		idDeclAllocator<idDeclEntityDef> );
-	RegisterDeclType( "fx",					DECL_FX,			idDeclAllocator<idDeclFX> );
-	RegisterDeclType( "particle",			DECL_PARTICLE,		idDeclAllocator<idDeclParticle> );
+// RAVEN: DECL_FX / DECL_PARTICLE are not used in Quake4; their enum values were removed.
 	RegisterDeclType( "articulatedFigure",	DECL_AF,			idDeclAllocator<idDeclAF> );
 	RegisterDeclType( "pda",				DECL_PDA,			idDeclAllocator<idDeclPDA> );
 	RegisterDeclType( "email",				DECL_EMAIL,			idDeclAllocator<idDeclEmail> );
@@ -834,8 +882,6 @@ void idDeclManagerLocal::Init( void ) {
 	cmdSystem->AddCommand( "listSoundShaders", idListDecls_f<DECL_SOUND>, CMD_FL_SYSTEM, "lists sound shaders", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 
 	cmdSystem->AddCommand( "listEntityDefs", idListDecls_f<DECL_ENTITYDEF>, CMD_FL_SYSTEM, "lists entity defs", idCmdSystem::ArgCompletion_String<listDeclStrings> );
-	cmdSystem->AddCommand( "listFX", idListDecls_f<DECL_FX>, CMD_FL_SYSTEM, "lists FX systems", idCmdSystem::ArgCompletion_String<listDeclStrings> );
-	cmdSystem->AddCommand( "listParticles", idListDecls_f<DECL_PARTICLE>, CMD_FL_SYSTEM, "lists particle systems", idCmdSystem::ArgCompletion_String<listDeclStrings> );
 	cmdSystem->AddCommand( "listAF", idListDecls_f<DECL_AF>, CMD_FL_SYSTEM, "lists articulated figures", idCmdSystem::ArgCompletion_String<listDeclStrings>);
 
 	cmdSystem->AddCommand( "listPDAs", idListDecls_f<DECL_PDA>, CMD_FL_SYSTEM, "lists PDAs", idCmdSystem::ArgCompletion_String<listDeclStrings> );
@@ -849,8 +895,6 @@ void idDeclManagerLocal::Init( void ) {
 	cmdSystem->AddCommand( "printSoundShader", idPrintDecls_f<DECL_SOUND>, CMD_FL_SYSTEM, "prints a sound shader", idCmdSystem::ArgCompletion_Decl<DECL_SOUND> );
 
 	cmdSystem->AddCommand( "printEntityDef", idPrintDecls_f<DECL_ENTITYDEF>, CMD_FL_SYSTEM, "prints an entity def", idCmdSystem::ArgCompletion_Decl<DECL_ENTITYDEF> );
-	cmdSystem->AddCommand( "printFX", idPrintDecls_f<DECL_FX>, CMD_FL_SYSTEM, "prints an FX system", idCmdSystem::ArgCompletion_Decl<DECL_FX> );
-	cmdSystem->AddCommand( "printParticle", idPrintDecls_f<DECL_PARTICLE>, CMD_FL_SYSTEM, "prints a particle system", idCmdSystem::ArgCompletion_Decl<DECL_PARTICLE> );
 	cmdSystem->AddCommand( "printAF", idPrintDecls_f<DECL_AF>, CMD_FL_SYSTEM, "prints an articulated figure", idCmdSystem::ArgCompletion_Decl<DECL_AF> );
 
 	cmdSystem->AddCommand( "printPDA", idPrintDecls_f<DECL_PDA>, CMD_FL_SYSTEM, "prints an PDA", idCmdSystem::ArgCompletion_Decl<DECL_PDA> );
@@ -950,6 +994,7 @@ idDeclManagerLocal::RegisterDeclType
 ===================
 */
 void idDeclManagerLocal::RegisterDeclType( const char *typeName, declType_t type, idDecl *(*allocator)( void ) ) {
+	{ extern bool g_q4Trace; if(g_q4Trace) common->Printf("[Q4trace] (3) RegisterDeclType( \"%s\" )\n", typeName ); }
 	idDeclType *declType;
 
 	if ( type < declTypes.Num() && declTypes[(int)type] ) {
@@ -966,6 +1011,22 @@ void idDeclManagerLocal::RegisterDeclType( const char *typeName, declType_t type
 		declTypes.AssureSize( (int)type + 1, NULL );
 	}
 	declTypes[type] = declType;
+}
+
+/*
+===================
+idDeclManagerLocal::RegisterDeclFolderWrapper
+
+The retail Quake4 game DLL calls this (14x) during idGameLocal::Init. The 'unique'
+and 'norecurse' flags only mattered for Raven's timing/profiling wrapper; we simply
+delegate to our existing RegisterDeclFolder load path.
+===================
+*/
+void idDeclManagerLocal::RegisterDeclFolderWrapper( const char *folder, const char *extension, declType_t defaultType, bool unique, bool norecurse ) {
+	extern bool g_q4Trace;
+	if ( g_q4Trace ) common->Printf( "[Q4trace] RegisterDeclFolder( %s, %s ) start...\n", folder, extension );
+	RegisterDeclFolder( folder, extension, defaultType );
+	if ( g_q4Trace ) common->Printf( "[Q4trace] RegisterDeclFolder( %s ) DONE\n", folder );
 }
 
 /*
@@ -1111,7 +1172,7 @@ idDeclManagerLocal::FindType
 External users will always cause the decl to be parsed before returning
 =================
 */
-const idDecl *idDeclManagerLocal::FindType( declType_t type, const char *name, bool makeDefault ) {
+const idDecl *idDeclManagerLocal::FindType( declType_t type, const char *name, bool makeDefault, bool noCaching ) {
 	idDeclLocal *decl;
 
 	if ( !name || !name[0] ) {
@@ -1548,6 +1609,105 @@ const idSoundShader *idDeclManagerLocal::FindSound( const char *name, bool makeD
 const idSoundShader *idDeclManagerLocal::SoundByIndex( int index, bool forceParse ) {
 	return static_cast<const idSoundShader *>( DeclByIndex( DECL_SOUND, index, forceParse ) );
 }
+
+/********************************************************************/
+
+const idDeclTable *idDeclManagerLocal::FindTable( const char *name, bool makeDefault ) {
+	return static_cast<const idDeclTable *>( FindType( DECL_TABLE, name, makeDefault ) );
+}
+
+const idDeclTable *idDeclManagerLocal::TableByIndex( int index, bool forceParse ) {
+	return static_cast<const idDeclTable *>( DeclByIndex( DECL_TABLE, index, forceParse ) );
+}
+
+/********************************************************************/
+// RAVEN BEGIN
+// jscott: for new Raven decls. These map onto the generic FindType/DeclByIndex
+// path exactly as the other convenience helpers do. The rvDecl* concrete types
+// are owned by other groups; here we only need the pointer cast.
+
+const rvDeclMatType *idDeclManagerLocal::FindMaterialType( const char *name, bool makeDefault ) {
+	return reinterpret_cast<const rvDeclMatType *>( FindType( DECL_MATERIALTYPE, name, makeDefault ) );
+}
+
+const rvDeclLipSync *idDeclManagerLocal::FindLipSync( const char *name, bool makeDefault ) {
+	return reinterpret_cast<const rvDeclLipSync *>( FindType( DECL_LIPSYNC, name, makeDefault ) );
+}
+
+const rvDeclPlayback *idDeclManagerLocal::FindPlayback( const char *name, bool makeDefault ) {
+	return reinterpret_cast<const rvDeclPlayback *>( FindType( DECL_PLAYBACK, name, makeDefault ) );
+}
+
+const rvDeclEffect *idDeclManagerLocal::FindEffect( const char *name, bool makeDefault ) {
+	return reinterpret_cast<const rvDeclEffect *>( FindType( DECL_EFFECT, name, makeDefault ) );
+}
+
+const rvDeclMatType *idDeclManagerLocal::MaterialTypeByIndex( int index, bool forceParse ) {
+	return reinterpret_cast<const rvDeclMatType *>( DeclByIndex( DECL_MATERIALTYPE, index, forceParse ) );
+}
+
+const rvDeclLipSync *idDeclManagerLocal::LipSyncByIndex( int index, bool forceParse ) {
+	return reinterpret_cast<const rvDeclLipSync *>( DeclByIndex( DECL_LIPSYNC, index, forceParse ) );
+}
+
+const rvDeclPlayback *idDeclManagerLocal::PlaybackByIndex( int index, bool forceParse ) {
+	return reinterpret_cast<const rvDeclPlayback *>( DeclByIndex( DECL_PLAYBACK, index, forceParse ) );
+}
+
+const rvDeclEffect *idDeclManagerLocal::EffectByIndex( int index, bool forceParse ) {
+	return reinterpret_cast<const rvDeclEffect *>( DeclByIndex( DECL_EFFECT, index, forceParse ) );
+}
+
+/*
+===================
+idDeclManagerLocal::GetNewName
+
+Returns an unused decl name of the form "base#" for the given type.
+===================
+*/
+idStr idDeclManagerLocal::GetNewName( declType_t type, const char *base ) {
+	idStr name;
+	int i = 0;
+	do {
+		name = va( "%s%d", base, i++ );
+	} while ( FindTypeWithoutParsing( type, name, false ) != NULL );
+	return name;
+}
+
+/*
+===================
+idDeclManagerLocal::GetDeclTypeName
+===================
+*/
+const char *idDeclManagerLocal::GetDeclTypeName( declType_t type ) {
+	return GetDeclNameFromType( type );
+}
+
+/*
+===================
+idDeclManagerLocal::AllocateDecl
+
+The retail Quake4 game DLL calls this directly (e.g. AllocateDecl( DECL_MODELDEF )
+from idDeclModelDef / idDeclCameraDef). It must really allocate an idDecl using the
+registered allocator for that type.
+===================
+*/
+idDecl *idDeclManagerLocal::AllocateDecl( declType_t type ) {
+	int typeIndex = (int)type;
+
+	if ( typeIndex < 0 || typeIndex >= declTypes.Num() || declTypes[typeIndex] == NULL ) {
+		common->FatalError( "idDeclManager::AllocateDecl: bad type: %i", typeIndex );
+		return NULL;
+	}
+
+	idDeclLocal *decl = new idDeclLocal;
+	decl->self = NULL;
+	decl->type = type;
+	decl->declState = DS_UNPARSED;
+	decl->AllocateSelf();
+	return decl->self;
+}
+// RAVEN END
 
 /*
 ===================

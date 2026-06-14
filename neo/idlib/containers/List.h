@@ -85,6 +85,7 @@ class idList {
 public:
 
 	typedef int		cmp_t( const type *, const type * );
+	typedef int		filter_t( const type * );		// RAVEN: used by sortInfo_t (NetworkSystem.h)
 	typedef type	new_t( void );
 
 					idList( int newgranularity = 16 );

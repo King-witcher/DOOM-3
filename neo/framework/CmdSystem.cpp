@@ -63,12 +63,16 @@ public:
 	virtual void			ExecuteCommandBuffer( void );
 
 	virtual void			ArgCompletion_FolderExtension( const idCmdArgs &args, void(*callback)( const char *s ), const char *folder, bool stripFolder, ... );
+	virtual void			ArgCompletion_Models( const idCmdArgs &args, void(*callback)( const char *s ), bool strogg, bool marine );
 	virtual void			ArgCompletion_DeclName( const idCmdArgs &args, void(*callback)( const char *s ), int type );
 
 	virtual void			BufferCommandArgs( cmdExecution_t exec, const idCmdArgs &args );
 
+	virtual void			SetupCVarsForReloadEngine( const idDict &dict );
 	virtual void			SetupReloadEngine( const idCmdArgs &args );
 	virtual bool			PostReloadEngine( void );
+
+	virtual void			ClearCompletion( void );
 
 	void					SetWait( int numFrames ) { wait = numFrames; }
 	commandDef_t *			GetCommands( void ) const { return commands; }
@@ -114,6 +118,9 @@ private:
 
 idCmdSystemLocal			cmdSystemLocal;
 idCmdSystem *				cmdSystem = &cmdSystemLocal;
+
+// rjohnson: netdemo completion
+char						netDemoExtension[16] = ".ndm";
 
 
 /*
@@ -362,6 +369,7 @@ idCmdSystemLocal::AddCommand
 ============
 */
 void idCmdSystemLocal::AddCommand( const char *cmdName, cmdFunction_t function, int flags, const char *description, argCompletion_t argCompletion ) {
+	{ extern bool g_q4Trace; if(g_q4Trace){ static bool f; if(!f){f=true; common->Printf("[Q4trace] (4) cmdSystem->AddCommand -- game Init past decls (SDK line 510)\n");} } }
 	commandDef_t *cmd;
 	
 	// fail if the command already exists
@@ -743,6 +751,14 @@ void idCmdSystemLocal::ArgCompletion_FolderExtension( const idCmdArgs &args, voi
 
 /*
 ============
+idCmdSystemLocal::ArgCompletion_Models
+============
+*/
+void idCmdSystemLocal::ArgCompletion_Models( const idCmdArgs &args, void(*callback)( const char *s ), bool strogg, bool marine ) {
+}
+
+/*
+============
 idCmdSystemLocal::ArgCompletion_DeclName
 ============
 */
@@ -756,6 +772,14 @@ void idCmdSystemLocal::ArgCompletion_DeclName( const idCmdArgs &args, void(*call
 	for ( i = 0; i < num; i++ ) {
 		callback( idStr( args.Argv( 0 ) ) + " " + declManager->DeclByIndex( (declType_t)type, i , false )->GetName() );
 	}
+}
+
+/*
+============
+idCmdSystemLocal::SetupCVarsForReloadEngine
+============
+*/
+void idCmdSystemLocal::SetupCVarsForReloadEngine( const idDict &dict ) {
 }
 
 /*
@@ -780,4 +804,14 @@ bool idCmdSystemLocal::PostReloadEngine( void ) {
 	BufferCommandArgs( CMD_EXEC_APPEND, postReload );
 	postReload.Clear();
 	return true;
+}
+
+/*
+============
+idCmdSystemLocal::ClearCompletion
+============
+*/
+void idCmdSystemLocal::ClearCompletion( void ) {
+	completionString = "*";
+	completionParms.Clear();
 }

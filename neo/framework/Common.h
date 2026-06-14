@@ -53,6 +53,22 @@ typedef enum {
 	EDITOR_MATERIAL				= BIT(12)
 } toolFlag_t;
 
+// RAVEN BEGIN
+// mekberg: added more save types (Quake4 SDK saveType_t)
+typedef enum {
+	ST_REGULAR,
+	ST_QUICK,
+	ST_AUTO,
+	ST_CHECKPOINT,
+} saveType_t;
+// RAVEN END
+
+// Forward declarations for types referenced by the idCommon interface
+// (owned by Common.h per the type-ownership map).
+class rvISourceControl;
+class idInterpreter;
+class idProgram;
+
 #define STRTABLE_ID				"#str_"
 #define STRTABLE_ID_LENGTH		5
 
@@ -143,8 +159,31 @@ public:
 								// set once to clear the cvar from +set for early init code
 	virtual void				StartupVariable( const char *match, bool once ) = 0;
 
+// RAVEN BEGIN
+	virtual	int					GetUserCmdHz( void ) const = 0;
+
+	virtual int					GetUserCmdMSec( void ) const = 0;
+
+								// Returns com_frameTime - which is 0 if a command is added to the command line
+	virtual int					GetFrameTime( void ) const = 0;
+
+								// returns if the game is processing the last frame when it processes multiple frames
+	virtual bool				IsRenderableGameFrame( void ) const = 0;
+
+	virtual void				SetRenderableGameFrame( bool in ) = 0;
+
+								// returns the last message from common->Error
+	virtual const char			*GetErrorMessage( void ) const = 0;
+
 								// Initializes a tool with the given dictionary.
-	virtual void				InitTool( const toolFlag_t tool, const idDict *dict ) = 0;
+	virtual void				InitTool( const int tool, const idDict *dict ) = 0;
+
+								// Returns true if an editor has focus
+	virtual bool				IsToolActive( void ) const = 0;
+
+								// Returns an interface to source control
+	virtual class rvISourceControl *GetSourceControl( void ) = 0;
+// RAVEN END
 
 								// Activates or deactivates a tool.
 	virtual void				ActivateTool( bool active ) = 0;
@@ -155,8 +194,28 @@ public:
 								// Writes cvars with the given flags to a file.
 	virtual void				WriteFlaggedCVarsToFile( const char *filename, int flags, const char *setCmd ) = 0;
 
+// RAVEN BEGIN
+// bdube: new exports
+								// Modview thinks in the middle of a game frame
+	virtual void				ModViewThink ( void ) = 0;
+
+// rjohnson: added option for guis to always think
+	virtual void				RunAlwaysThinkGUIs ( int time ) = 0;
+
+								// Debbugger hook to check if a breakpoint has been hit
+	virtual void				DebuggerCheckBreakpoint ( idInterpreter* interpreter, idProgram* program, int instructionPointer ) = 0;
+
+// scork: need to test if validating to catch some model errors that would stop the validation and convert to warnings...
+	virtual bool				DoingDeclValidation( void ) = 0;
+// scork: guess
+	virtual void				SetCrashReportAutoSendString( const char *psString ) = 0;
+
+	virtual void				LoadToolsDLL( void ) = 0;
+	virtual void				UnloadToolsDLL( void ) = 0;
+// RAVEN END
+
 								// Begins redirection of console output to the given buffer.
-	virtual void				BeginRedirect( char *buffer, int buffersize, void (*flush)( const char * ) ) = 0;
+	virtual void				BeginRedirect( char *buffer, int buffersize, void (*flush)( const char * ), bool rcon = false ) = 0;
 
 								// Stops redirection of console output.
 	virtual void				EndRedirect( void ) = 0;
@@ -194,20 +253,54 @@ public:
 								// static internal errors or cases where the system may be corrupted.
 	virtual void				FatalError( const char *fmt, ... ) id_attribute((format(printf,2,3))) = 0;
 
-								// Returns a pointer to the dictionary with language specific strings.
-	virtual const idLangDict *	GetLanguageDict( void ) = 0;
+// RAVEN BEGIN
+								// Brings up notepad with the warnings generated while running the game
+	virtual void				DumpWarnings( void ) = 0;
+
+								// Returns the localised string of the token, of the token if it does not begin with #str_
+	virtual const char *		GetLocalizedString( const char *token, int langIndex = -1 ) = 0;
+
+								// Returns the localised string at position 'index'
+	virtual const idLangKeyValue * GetLocalizedString( int index, int langIndex = -1 ) = 0;
+
+								// Returns the number of languages the game found
+	virtual int					GetNumLanguages( void ) const = 0;
+
+								// Returns the number of strings in the English langdict
+	virtual int					GetNumLocalizedStrings( void ) const = 0;
+
+								// Returns the name of the language
+	virtual const char *		GetLanguage( int index ) const = 0;
+
+								// Returns whether the language has VO
+	virtual bool				LanguageHasVO( int index ) const = 0;
 
 								// Returns key bound to the command
 	virtual const char *		KeysFromBinding( const char *bind ) = 0;
 
 								// Returns the binding bound to the key
-	virtual const char *		BindingFromKey( const char *key ) = 0; 
+	virtual const char *		BindingFromKey( const char *key ) = 0;
 
 								// Directly sample a button.
 	virtual int					ButtonState( int key ) = 0;
 
 								// Directly sample a keystate.
 	virtual int					KeyState( int key ) = 0;
+
+// mekberg: added
+	virtual int					GetRModeForMachineSpec( int machineSpec ) const = 0;
+	virtual void				SetDesiredMachineSpec( int machineSpec ) = 0;
+// RAVEN END
+
+								// returns true if we are currently executing an rcon operation
+	virtual bool				IsRCon( void ) const = 0;
+
+	// RAVEN/engine-only: the Quake 4 SDK idCommon dropped GetLanguageDict in
+	// favour of GetLocalizedString, but the DOOM 3 engine's menu/localization
+	// code still uses it. Appended AFTER the SDK vtable so the retail DLL (which
+	// never calls it) still sees an unchanged SDK layout; only the engine uses
+	// this extra slot.
+	virtual const idLangDict *	GetLanguageDict( void ) = 0;
 };
 
 extern idCommon *		common;

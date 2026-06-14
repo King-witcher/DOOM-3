@@ -48,6 +48,9 @@ typedef enum {
 	#define BUILD_DEBUG ""
 #endif
 
+// RAVEN: trace flag, true only while game->Init() runs (Quake 4 port debugging).
+bool g_q4Trace = false;
+
 struct version_s {
 			version_s( void ) { sprintf( string, "%s.%d%s %s %s %s", ENGINE_VERSION, BUILD_NUMBER, BUILD_DEBUG, BUILD_STRING, __DATE__, __TIME__ ); }
 	char	string[256];
@@ -124,11 +127,26 @@ public:
 	virtual void				GUIFrame( bool execCmd, bool network );
 	virtual void				Async( void );
 	virtual void				StartupVariable( const char *match, bool once );
-	virtual void				InitTool( const toolFlag_t tool, const idDict *dict );
+	virtual	int					GetUserCmdHz( void ) const;
+	virtual int					GetUserCmdMSec( void ) const;
+	virtual int					GetFrameTime( void ) const;
+	virtual bool				IsRenderableGameFrame( void ) const;
+	virtual void				SetRenderableGameFrame( bool in );
+	virtual const char			*GetErrorMessage( void ) const;
+	virtual void				InitTool( const int tool, const idDict *dict );
+	virtual bool				IsToolActive( void ) const;
+	virtual class rvISourceControl *GetSourceControl( void );
 	virtual void				ActivateTool( bool active );
 	virtual void				WriteConfigToFile( const char *filename );
 	virtual void				WriteFlaggedCVarsToFile( const char *filename, int flags, const char *setCmd );
-	virtual void				BeginRedirect( char *buffer, int buffersize, void (*flush)( const char * ) );
+	virtual void				ModViewThink ( void );
+	virtual void				RunAlwaysThinkGUIs ( int time );
+	virtual void				DebuggerCheckBreakpoint ( idInterpreter* interpreter, idProgram* program, int instructionPointer );
+	virtual bool				DoingDeclValidation( void );
+	virtual void				SetCrashReportAutoSendString( const char *psString );
+	virtual void				LoadToolsDLL( void );
+	virtual void				UnloadToolsDLL( void );
+	virtual void				BeginRedirect( char *buffer, int buffersize, void (*flush)( const char * ), bool rcon = false );
 	virtual void				EndRedirect( void );
 	virtual void				SetRefreshOnPrint( bool set );
 	virtual void				Printf( const char *fmt, ... ) id_attribute((format(printf,2,3)));
@@ -140,13 +158,24 @@ public:
 	virtual void				ClearWarnings( const char *reason );
 	virtual void				Error( const char *fmt, ... ) id_attribute((format(printf,2,3)));
 	virtual void				FatalError( const char *fmt, ... ) id_attribute((format(printf,2,3)));
-	virtual const idLangDict *	GetLanguageDict( void );
+	virtual void				DumpWarnings( void );
+	virtual const char *		GetLocalizedString( const char *token, int langIndex = -1 );
+	virtual const idLangKeyValue * GetLocalizedString( int index, int langIndex = -1 );
+	virtual int					GetNumLanguages( void ) const;
+	virtual int					GetNumLocalizedStrings( void ) const;
+	virtual const char *		GetLanguage( int index ) const;
+	virtual bool				LanguageHasVO( int index ) const;
 
 	virtual const char *		KeysFromBinding( const char *bind );
 	virtual const char *		BindingFromKey( const char *key );
 
 	virtual int					ButtonState( int key );
 	virtual int					KeyState( int key );
+
+	virtual int					GetRModeForMachineSpec( int machineSpec ) const;
+	virtual void				SetDesiredMachineSpec( int machineSpec );
+
+	virtual bool				IsRCon( void ) const;
 
 	void						InitGame( void );
 	void						ShutdownGame( bool reloading );
@@ -159,6 +188,10 @@ public:
 
 	void						SetMachineSpec( void );
 
+	// non-virtual helper: language dictionary access used internally by the
+	// engine.  Not part of the Quake4 idCommon vtable (removed from interface).
+	const idLangDict *			GetLanguageDict( void );
+
 private:
 	void						InitCommands( void );
 	void						InitRenderSystem( void );
@@ -170,7 +203,6 @@ private:
 	void						CheckToolMode( void );
 	void						CloseLogFile( void );
 	void						WriteConfiguration( void );
-	void						DumpWarnings( void );
 	void						SingleAsyncTic( void );
 	void						LoadGameDLL( void );
 	void						UnloadGameDLL( void );
@@ -238,7 +270,7 @@ idCommonLocal::idCommonLocal( void ) {
 idCommonLocal::BeginRedirect
 ==================
 */
-void idCommonLocal::BeginRedirect( char *buffer, int buffersize, void (*flush)( const char *) ) {
+void idCommonLocal::BeginRedirect( char *buffer, int buffersize, void (*flush)( const char *), bool rcon ) {
 	if ( !buffer || !buffersize || !flush ) {
 		return;
 	}
@@ -984,7 +1016,7 @@ bool idCommonLocal::AddStartupCommands( void ) {
 idCommonLocal::InitTool
 =================
 */
-void idCommonLocal::InitTool( const toolFlag_t tool, const idDict *dict ) {
+void idCommonLocal::InitTool( const int tool, const idDict *dict ) {
 #ifdef ID_ALLOW_TOOLS
 	if ( tool & EDITOR_SOUND ) {
 		SoundEditorInit( dict );
@@ -996,6 +1028,107 @@ void idCommonLocal::InitTool( const toolFlag_t tool, const idDict *dict ) {
 		AFEditorInit( dict );
 	}
 #endif
+}
+
+/*
+=================
+Quake4 idCommon additions
+
+The following methods were added to the idCommon interface for the Quake4
+(id Tech 4 v37) game DLL contract.  Init-critical methods (GetUserCmdHz,
+GetUserCmdMSec, GetFrameTime) return real values; the rest are stubs that
+satisfy the vtable.
+=================
+*/
+int idCommonLocal::GetUserCmdHz( void ) const {
+	if ( g_q4Trace ) { static bool d; if ( !d ) { d = true; common->Printf( "[Q4trace] (0) common->GetUserCmdHz -- game Init body started (SDK line 426)\n" ); } }
+	return 60;
+}
+
+int idCommonLocal::GetUserCmdMSec( void ) const {
+	return 16;
+}
+
+int idCommonLocal::GetFrameTime( void ) const {
+	return com_frameTime;
+}
+
+bool idCommonLocal::IsRenderableGameFrame( void ) const {
+	return true;
+}
+
+void idCommonLocal::SetRenderableGameFrame( bool in ) {
+}
+
+const char *idCommonLocal::GetErrorMessage( void ) const {
+	return errorMessage;
+}
+
+bool idCommonLocal::IsToolActive( void ) const {
+	return false;
+}
+
+class rvISourceControl *idCommonLocal::GetSourceControl( void ) {
+	return NULL;
+}
+
+void idCommonLocal::ModViewThink ( void ) {
+}
+
+void idCommonLocal::RunAlwaysThinkGUIs ( int time ) {
+}
+
+void idCommonLocal::DebuggerCheckBreakpoint ( idInterpreter* interpreter, idProgram* program, int instructionPointer ) {
+}
+
+bool idCommonLocal::DoingDeclValidation( void ) {
+	return false;
+}
+
+void idCommonLocal::SetCrashReportAutoSendString( const char *psString ) {
+}
+
+void idCommonLocal::LoadToolsDLL( void ) {
+}
+
+void idCommonLocal::UnloadToolsDLL( void ) {
+}
+
+const char *idCommonLocal::GetLocalizedString( const char *token, int langIndex ) {
+	// Return the localized string for the token, or the token itself if it
+	// is not a #str_ reference.  Routed through the engine language dict.
+	return GetLanguageDict()->GetString( token );
+}
+
+const idLangKeyValue *idCommonLocal::GetLocalizedString( int index, int langIndex ) {
+	return NULL;
+}
+
+int idCommonLocal::GetNumLanguages( void ) const {
+	return 1;
+}
+
+int idCommonLocal::GetNumLocalizedStrings( void ) const {
+	return 0;
+}
+
+const char *idCommonLocal::GetLanguage( int index ) const {
+	return "english";
+}
+
+bool idCommonLocal::LanguageHasVO( int index ) const {
+	return true;
+}
+
+int idCommonLocal::GetRModeForMachineSpec( int machineSpec ) const {
+	return 0;
+}
+
+void idCommonLocal::SetDesiredMachineSpec( int machineSpec ) {
+}
+
+bool idCommonLocal::IsRCon( void ) const {
+	return false;
 }
 
 /*
@@ -2011,7 +2144,7 @@ int LocalizeMap(const char* mapName, idLangDict &langDict, ListHash& listHash, i
 			idStr file =  fileSystem->RelativePathToOSPath(mapName);
 			idStr bak = file.Left(file.Length() - 4);
 			bak.Append(".bak_loc");
-			fileSystem->CopyFile( file, bak );
+			fileSystem->CopyOSFile( file, bak );
 			
 			map.Write( mapName, ".map" );
 		}
@@ -2403,7 +2536,7 @@ void idCommonLocal::InitRenderSystem( void ) {
 	}
 
 	renderSystem->InitOpenGL();
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04343" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04343" ) );
 }
 
 /*
@@ -2622,6 +2755,14 @@ void idCommonLocal::Async( void ) {
 	}
 }
 
+// RAVEN: Quake 4 unified-allocator thunks. The retail gamex86.dll's idGame::Init
+// hands us alloc/free/msize callbacks that ALL game-side allocations route
+// through; back them with the engine's CRT heap so they stay mutually consistent.
+#include <malloc.h>		// _msize
+static void *	Q4_GameAlloc( size_t size )	{ if(g_q4Trace){ static bool f; if(!f){f=true; common->Printf("[Q4trace] (1) first game allocation via thunk -- idLib::Init running\n");} } return ::malloc( size ); }
+static void		Q4_GameFree( void *ptr )	{ ::free( ptr ); }
+static size_t	Q4_GameMsize( void *ptr )	{ return ptr ? ::_msize( ptr ) : 0; }
+
 /*
 =================
 idCommonLocal::LoadGameDLL
@@ -2684,20 +2825,20 @@ void idCommonLocal::LoadGameDLL( void ) {
 	game								= gameExport.game;
 	gameEdit							= gameExport.gameEdit;
 
-	// --- Quake 4 port milestone 1 ---------------------------------------------
-	// The retail Quake 4 gamex86.dll exports GetGameAPI and reports
-	// GAME_API_VERSION 37, which the engine now accepts. Stop here, BEFORE
-	// game->Init(), because idGame's vtable is not yet reconciled to the Quake 4
-	// v37 layout -- calling into it would crash. Removing this halt (and doing
-	// the idGame / idCommon / idNetworkSystem ports) is the next step.
 	common->Printf( "\n=== [Quake4] retail gamex86.dll loaded; GetGameAPI version %d accepted ===\n", gameExport.version );
-	common->FatalError( "[Quake4 milestone 1] game DLL loaded and version %d accepted -- halting before game->Init (idGame vtable port pending).", gameExport.version );
 
 #endif
 
 	// initialize the game object
 	if ( game != NULL ) {
-		game->Init();
+		// RAVEN: Quake 4's idGame::Init takes unified-allocator callbacks (vtable
+		// slot 1). All game-side allocations are routed through these thunks.
+		common->Printf( "[Quake4] >>> calling game->Init( allocator )...\n" );
+		g_q4Trace = true;
+		game->Init( Q4_GameAlloc, Q4_GameFree, Q4_GameMsize );
+		g_q4Trace = false;
+		common->Printf( "[Quake4] <<< game->Init() RETURNED to engine\n" );
+		common->FatalError( "[Quake4 milestone 2] game->Init() returned -- the Quake 4 game initialized inside the engine. Halting before menu setup (UI/render/sound ports pending)." );
 	}
 }
 
@@ -2962,7 +3103,7 @@ void idCommonLocal::InitGame( void ) {
 	// initialize string database right off so we can use it for loading messages
 	InitLanguageDict();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04344" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04344" ) );
 
 	// load the font, etc
 	console->LoadGraphics();
@@ -2970,7 +3111,7 @@ void idCommonLocal::InitGame( void ) {
 	// init journalling, etc
 	eventLoop->Init();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04345" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04345" ) );
 
 	// exec the startup scripts
 	cmdSystem->BufferCommandText( CMD_EXEC_APPEND, "exec editor.cfg\n" );
@@ -3000,12 +3141,12 @@ void idCommonLocal::InitGame( void ) {
 	// init the user command input code
 	usercmdGen->Init();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04346" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04346" ) );
 
 	// start the sound system, but don't do any hardware operations yet
 	soundSystem->Init();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04347" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04347" ) );
 
 	// init async network
 	idAsyncNetwork::Init();
@@ -3019,12 +3160,12 @@ void idCommonLocal::InitGame( void ) {
 		cvarSystem->SetCVarBool( "s_noSound", true );
 	} else {
 		// init OpenGL, which will open a window and connect sound and input hardware
-		PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04348" ) );
+		PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04348" ) );
 		InitRenderSystem();
 	}
 #endif
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04349" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04349" ) );
 
 	// initialize the user interfaces
 	uiManager->Init();
@@ -3032,12 +3173,12 @@ void idCommonLocal::InitGame( void ) {
 	// startup the script debugger
 	// DebuggerServerInit();
 
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04350" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04350" ) );
 
 	// load the game dll
 	LoadGameDLL();
 	
-	PrintLoadingMessage( common->GetLanguageDict()->GetString( "#str_04351" ) );
+	PrintLoadingMessage( GetLanguageDict()->GetString( "#str_04351" ) );
 
 	// init the session
 	session->Init();

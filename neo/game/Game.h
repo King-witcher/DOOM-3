@@ -73,8 +73,11 @@ class idGame {
 public:
 	virtual						~idGame() {}
 
-	// Initialize the game for the first time.
-	virtual void				Init( void ) = 0;
+	// RAVEN: Quake 4 (RV_UNIFIED_ALLOCATOR on) hands the game its unified-allocator
+	// callbacks here. This is the ONLY Init in the v37 idGame vtable (slot 1). The
+	// plain Init(void) is the SDK's #else branch and must NOT also be declared, or
+	// every idGame slot below (Shutdown, SetLocalClient, ...) shifts by one.
+	virtual void				Init( void *(*allocator)( size_t size ), void (*deallocator)( void *ptr ), size_t (*msize)( void *ptr ) ) = 0;
 
 	// Shut down the entire game.
 	virtual void				Shutdown( void ) = 0;

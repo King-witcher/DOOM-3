@@ -31,6 +31,12 @@ If you have questions concerning this license or the applicable additional terms
 
 idCVar * idCVar::staticVars = NULL;
 
+// RAVEN BEGIN
+// rjohnson: new help system for cvar ui
+idCVarHelp * idCVarHelp::staticCVarHelps = NULL;
+idCVarHelp * idCVarHelp::staticCVarHelpsTail = NULL;
+// RAVEN END
+
 /*
 ===============================================================================
 
@@ -429,6 +435,9 @@ public:
 
 	virtual void			Register( idCVar *cvar );
 
+	virtual void			Register( const idCVarHelp *cvarHelp );
+	virtual idCVarHelp *	GetHelps( cvarHelpCategory_t category );
+
 	virtual idCVar *		Find( const char *name );
 
 	virtual void			SetCVarString( const char *name, const char *value, int flags = 0 );
@@ -453,6 +462,9 @@ public:
 	virtual void			ResetFlaggedVariables( int flags );
 	virtual void			RemoveFlaggedAutoCompletion( int flags );
 	virtual void			WriteFlaggedVariables( int flags, const char *setCmd, idFile *f ) const;
+	virtual unsigned int	WriteFlaggedVariables( int flags, const char *setCmd, byte *buf, unsigned int bufSize ) const;
+	virtual void			ApplyFlaggedVariables( byte *buf, unsigned int bufSize );
+	virtual idStr			WriteFlaggedVariables( int flags ) const;
 
 	virtual const idDict *	MoveCVarsToDict( int flags ) const;
 	virtual void			SetCVarsFromDict( const idDict &dict );
@@ -466,6 +478,10 @@ private:
 	idList<idInternalCVar*>	cvars;
 	idHashIndex				cvarHash;
 	int						modifiedFlags;
+// RAVEN BEGIN
+// rjohnson: new help system for cvar ui
+	idList<const idCVarHelp*> cvarHelps;
+// RAVEN END
 							// use a static dictionary to MoveCVarsToDict can be used from game
 	static idDict			moveCVarsToDict;
 
@@ -611,6 +627,7 @@ idCVarSystemLocal::Register
 ============
 */
 void idCVarSystemLocal::Register( idCVar *cvar ) {
+	{ extern bool g_q4Trace; if(g_q4Trace){ static bool f; if(!f){f=true; common->Printf("[Q4trace] (2) cvarSystem->Register -- game RegisterStaticVars (SDK line 439)\n");} } }
 	int hash;
 	idInternalCVar *internal;
 
@@ -628,6 +645,33 @@ void idCVarSystemLocal::Register( idCVar *cvar ) {
 
 	cvar->SetInternalVar( internal );
 }
+
+// RAVEN BEGIN
+// rjohnson: new help system for cvar ui
+/*
+============
+idCVarSystemLocal::Register
+============
+*/
+void idCVarSystemLocal::Register( const idCVarHelp *cvarHelp ) {
+	cvarHelps.Append( cvarHelp );
+}
+
+/*
+============
+idCVarSystemLocal::GetHelps
+============
+*/
+idCVarHelp *idCVarSystemLocal::GetHelps( cvarHelpCategory_t category ) {
+	for ( int i = 0; i < cvarHelps.Num(); i++ ) {
+		const idCVarHelp *help = cvarHelps[i];
+		if ( category == CVARHELP_ALL || ( help->GetCategory() & category ) ) {
+			return const_cast<idCVarHelp *>( help );
+		}
+	}
+	return NULL;
+}
+// RAVEN END
 
 /*
 ============
@@ -857,6 +901,85 @@ void idCVarSystemLocal::WriteFlaggedVariables( int flags, const char *setCmd, id
 		}
 	}
 }
+
+// RAVEN BEGIN
+// nrausch: memory cvar support
+/*
+============
+idCVarSystemLocal::WriteFlaggedVariables
+
+Writes lines containing "set variable value" for all variables
+with the "flags" flag set to true into the supplied buffer.
+Returns the number of bytes written.
+============
+*/
+unsigned int idCVarSystemLocal::WriteFlaggedVariables( int flags, const char *setCmd, byte *buf, unsigned int bufSize ) const {
+	idStr out = WriteFlaggedVariables( flags );
+	unsigned int len = (unsigned int)out.Length();
+	if ( buf && bufSize > 0 ) {
+		unsigned int copyLen = ( len < bufSize - 1 ) ? len : bufSize - 1;
+		memcpy( buf, out.c_str(), copyLen );
+		buf[copyLen] = '\0';
+		return copyLen;
+	}
+	return len;
+}
+
+/*
+============
+idCVarSystemLocal::ApplyFlaggedVariables
+
+Parses "set variable value" lines from the supplied buffer and applies them.
+============
+*/
+void idCVarSystemLocal::ApplyFlaggedVariables( byte *buf, unsigned int bufSize ) {
+	if ( !buf || bufSize == 0 ) {
+		return;
+	}
+
+	// parse one "set name value" line at a time so we don't overrun
+	// idCmdArgs' fixed token buffer / argument count limits
+	idStr text;
+	text.Append( (const char *)buf, (int)bufSize );
+
+	const char *p = text.c_str();
+	while ( *p ) {
+		const char *lineStart = p;
+		while ( *p && *p != '\n' && *p != '\r' ) {
+			p++;
+		}
+		idStr line( lineStart, 0, (int)( p - lineStart ) );
+		while ( *p == '\n' || *p == '\r' ) {
+			p++;
+		}
+
+		idCmdArgs args;
+		args.TokenizeString( line.c_str(), false );
+		if ( args.Argc() >= 3 && idStr::Icmp( args.Argv( 0 ), "set" ) == 0 ) {
+			SetInternal( args.Argv( 1 ), args.Argv( 2 ), 0 );
+		}
+	}
+}
+
+/*
+============
+idCVarSystemLocal::WriteFlaggedVariables
+
+Returns a string containing "set variable value" lines for all variables
+with the "flags" flag set to true.
+============
+*/
+idStr idCVarSystemLocal::WriteFlaggedVariables( int flags ) const {
+	idStr out;
+	for( int i = 0; i < cvars.Num(); i++ ) {
+		idInternalCVar *cvar = cvars[i];
+		if ( cvar->GetFlags() & flags ) {
+			out += va( "set %s \"%s\"\n", cvar->GetName(), cvar->GetString() );
+		}
+	}
+	return out;
+}
+// RAVEN END
 
 /*
 ============

@@ -859,6 +859,7 @@ public:
 
 extern idVec4 vec4_origin;
 #define vec4_zero vec4_origin
+extern idVec4 vec4_one;			// RAVEN/Q4: needed for idGame::PlayEffect default arg (effectTint = vec4_one)
 
 ID_INLINE idVec4::idVec4( void ) {
 }

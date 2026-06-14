@@ -1255,8 +1255,8 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 			oldFloatTime = tr.viewDef->floatTime;
 			oldTime = tr.viewDef->renderView.time;
 
-			tr.viewDef->floatTime = game->GetTimeGroupTime( space->entityDef->parms.timeGroup ) * 0.001;
-			tr.viewDef->renderView.time = game->GetTimeGroupTime( space->entityDef->parms.timeGroup );
+			// RAVEN/Q4: v37 idGame has no time-group remapping (SelectTimeGroup/GetTimeGroupTime were deleted). Use the normal view time.
+			tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
 		}
 
 		shader->EvaluateRegisters( regs, shaderParms, tr.viewDef, renderEntity->referenceSound );
@@ -1303,8 +1303,8 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 		oldFloatTime = tr.viewDef->floatTime;
 		oldTime = tr.viewDef->renderView.time;
 
-		tr.viewDef->floatTime = game->GetTimeGroupTime( 1 ) * 0.001;
-		tr.viewDef->renderView.time = game->GetTimeGroupTime( 1 );
+		// RAVEN/Q4: v37 idGame has no GetTimeGroupTime; keep the gui on the normal view time.
+		tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
 
 		idBounds ndcBounds;
 
@@ -1484,14 +1484,12 @@ void R_AddModelSurfaces( void ) {
 		float oldFloatTime;
 		int oldTime;
 
-		game->SelectTimeGroup( vEntity->entityDef->parms.timeGroup );
-
+		// RAVEN/Q4: v37 idGame dropped SelectTimeGroup/GetTimeGroupTime; no time-group remapping.
 		if ( vEntity->entityDef->parms.timeGroup ) {
 			oldFloatTime = tr.viewDef->floatTime;
 			oldTime = tr.viewDef->renderView.time;
 
-			tr.viewDef->floatTime = game->GetTimeGroupTime( vEntity->entityDef->parms.timeGroup ) * 0.001;
-			tr.viewDef->renderView.time = game->GetTimeGroupTime( vEntity->entityDef->parms.timeGroup );
+			tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
 		}
 
 		if ( tr.viewDef->isXraySubview && vEntity->entityDef->parms.xrayIndex == 1 ) {

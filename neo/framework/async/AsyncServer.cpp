@@ -254,8 +254,10 @@ void idAsyncServer::ExecuteMapChange( void ) {
 	// reset any pureness
 	fileSystem->ClearPureChecksums();
 
-	// make sure the map/gametype combo is good
-	game->GetBestGameType( cvarSystem->GetCVarString("si_map"), cvarSystem->GetCVarString("si_gametype"), bestGameType );
+	// RAVEN/Q4: v37 idGame dropped GetBestGameType (no engine-side replacement that returns a
+	// corrected gametype). Keep the configured si_gametype as-is; the game DLL validates it via
+	// ValidateServerSettings on connect.
+	idStr::Copynz( bestGameType, cvarSystem->GetCVarString("si_gametype"), sizeof( bestGameType ) );
 	cvarSystem->SetCVarString("si_gametype", bestGameType );
 
 	// initialize map settings
@@ -722,7 +724,7 @@ idAsyncServer::BeginLocalClient
 */
 void idAsyncServer::BeginLocalClient( void ) {
 	game->SetLocalClient( localClientNum );
-	game->SetUserInfo( localClientNum, sessLocal.mapSpawnData.userInfo[localClientNum], false, false );
+	game->SetUserInfo( localClientNum, sessLocal.mapSpawnData.userInfo[localClientNum], false ); // RAVEN/Q4: dropped canModify
 	game->ServerClientBegin( localClientNum );
 }
 
@@ -894,7 +896,7 @@ void idAsyncServer::SendUserInfoBroadcast( int userInfoNum, const idDict &info, 
 	const idDict	*gameInfo;
 	bool			gameModifiedInfo;
 
-	gameInfo = game->SetUserInfo( userInfoNum, info, false, true );
+	gameInfo = game->SetUserInfo( userInfoNum, info, false ); // RAVEN/Q4: dropped canModify (game returns the dict if it modified it)
 	if ( gameInfo ) {
 		gameModifiedInfo = true;
 	} else {
@@ -1152,7 +1154,9 @@ bool idAsyncServer::SendSnapshotToClient( int clientNum ) {
 	idBitMsg	msg;
 	byte		msgBuf[MAX_MESSAGE_SIZE];
 	usercmd_t *	last;
-	byte		clientInPVS[MAX_ASYNC_CLIENTS >> 3];
+	// RAVEN/Q4: v37 ServerWriteSnapshot takes dword *clientInPVS (was byte* in v8). Size the
+	// PVS bitfield in dwords; the per-client bit read below reinterprets it as bytes.
+	dword		clientInPVS[(MAX_ASYNC_CLIENTS + 31) >> 5];
 
 	serverClient_t &client = clients[clientNum];
 
@@ -1178,7 +1182,7 @@ bool idAsyncServer::SendSnapshotToClient( int clientNum ) {
 	msg.WriteShort( idMath::ClampShort( client.clientAheadTime ) );
 
 	// write the game snapshot
-	game->ServerWriteSnapshot( clientNum, client.snapshotSequence, msg, clientInPVS, MAX_ASYNC_CLIENTS );
+	game->ServerWriteSnapshot( clientNum, client.snapshotSequence, msg, clientInPVS, MAX_ASYNC_CLIENTS, 0 ); // RAVEN/Q4: dword* PVS + lastSnapshotFrame (0)
 
 	// write the latest user commands from the other clients in the PVS to the snapshot
 	for ( last = NULL, i = 0; i < MAX_ASYNC_CLIENTS; i++ ) {
@@ -1189,7 +1193,8 @@ bool idAsyncServer::SendSnapshotToClient( int clientNum ) {
 		}
 
 		// if the client is not in the PVS
-		if ( !( clientInPVS[i >> 3] & ( 1 << ( i & 7 ) ) ) ) {
+		// RAVEN/Q4: clientInPVS is now dword[]; read it byte-wise to keep the original bit layout.
+		if ( !( ( (const byte *)clientInPVS )[i >> 3] & ( 1 << ( i & 7 ) ) ) ) {
 			continue;
 		}
 
@@ -1777,7 +1782,9 @@ void idAsyncServer::ProcessConnectMessage( const netadr_t from, const idBitMsg &
 	// but meanwhile, the max players may have been reached
 	msg.ReadString( password, sizeof( password ) );
 	char reason[MAX_STRING_CHARS];
-	allowReply_t reply = game->ServerAllowClient( numClients, Sys_NetAdrToString( from ), guid, password, reason );
+	// RAVEN/Q4: v37 ServerAllowClient gained a leading clientId and a privatePassword arg.
+	// The legacy async protocol carries a single password, so pass "" for privatePassword.
+	allowReply_t reply = game->ServerAllowClient( clientId, numClients, Sys_NetAdrToString( from ), guid, password, "", reason );
 	if ( reply != ALLOW_YES ) {
 		common->DPrintf( "game denied connection for %s\n", Sys_NetAdrToString( from ) );
 
@@ -2463,7 +2470,8 @@ void idAsyncServer::RunFrame( void ) {
 		DuplicateUsercmds( gameFrame, gameTime );
 
 		// advance game
-		gameReturn_t ret = game->RunFrame( userCmds[gameFrame & ( MAX_USERCMD_BACKUP - 1 ) ] );
+		// RAVEN/Q4: v37 RunFrame( cmds, activeEditors, lastCatchupFrame, serverGameFrame )
+		gameReturn_t ret = game->RunFrame( userCmds[gameFrame & ( MAX_USERCMD_BACKUP - 1 ) ], 0, true, gameFrame );
 
 		idAsyncNetwork::ExecuteSessionCommand( ret.sessionCommand );
 

@@ -51,6 +51,16 @@ typedef enum {
 // RAVEN: trace flag, true only while game->Init() runs (Quake 4 port debugging).
 bool g_q4Trace = false;
 
+// Flushed file trace for pinpointing crashes the buffered console log can't reach.
+void Q4_Trace( const char *msg ) {
+	FILE *f = fopen( "C:\\code\\id\\DOOM-3\\.vscode\\q4-trace.txt", "a" );
+	if ( f ) {
+		fputs( msg, f );
+		fputc( '\n', f );
+		fclose( f );
+	}
+}
+
 struct version_s {
 			version_s( void ) { sprintf( string, "%s.%d%s %s %s %s", ENGINE_VERSION, BUILD_NUMBER, BUILD_DEBUG, BUILD_STRING, __DATE__, __TIME__ ); }
 	char	string[256];
@@ -2837,8 +2847,7 @@ void idCommonLocal::LoadGameDLL( void ) {
 		g_q4Trace = true;
 		game->Init( Q4_GameAlloc, Q4_GameFree, Q4_GameMsize );
 		g_q4Trace = false;
-		common->Printf( "[Quake4] <<< game->Init() RETURNED to engine\n" );
-		common->FatalError( "[Quake4 milestone 2] game->Init() returned -- the Quake 4 game initialized inside the engine. Halting before menu setup (UI/render/sound ports pending)." );
+		common->Printf( "[Quake4] <<< game->Init() RETURNED -- continuing engine init toward the main menu (M3)\n" );
 	}
 }
 

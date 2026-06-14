@@ -1444,7 +1444,12 @@ void idSessionLocal::LoadLoadingGui( const char *mapName ) {
 	char guiMap[ MAX_STRING_CHARS ];
 	strncpy( guiMap, va( "guis/map/%s.gui", stripped.c_str() ), MAX_STRING_CHARS );
 	// give the gamecode a chance to override
-	game->GetMapLoadingGUI( guiMap );
+	// RAVEN/Q4: v37 dropped GetMapLoadingGUI( char[] ) in favor of GetLoadingGui() which
+	// RETURNS the override gui name (or NULL) instead of writing into the buffer.
+	const char *loadingGuiOverride = game->GetLoadingGui( stripped.c_str() );
+	if ( loadingGuiOverride && loadingGuiOverride[0] ) {
+		idStr::Copynz( guiMap, loadingGuiOverride, sizeof( guiMap ) );
+	}
 
 	if ( uiManager->CheckGui( guiMap ) ) {
 		guiLoading = uiManager->FindGui( guiMap, true, false, true );
@@ -1624,25 +1629,25 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 
 	// set the user info
 	for ( i = 0; i < numClients; i++ ) {
-		game->SetUserInfo( i, mapSpawnData.userInfo[i], idAsyncNetwork::client.IsActive(), false );
+		game->SetUserInfo( i, mapSpawnData.userInfo[i], idAsyncNetwork::client.IsActive() ); // RAVEN/Q4: dropped canModify
 		game->SetPersistentPlayerInfo( i, mapSpawnData.persistentPlayerInfo[i] );
 	}
 
 	// load and spawn all other entities ( from a savegame possibly )
 	common->Printf( "[Q4trace] (6/7) Session reached MAP LOAD (ExecuteMapChange) -- engine is past game->Init\n" );
 	if ( loadingSaveGame && savegameFile ) {
-		if ( game->InitFromSaveGame( fullMapName + ".map", rw, sw, savegameFile ) == false ) {
+		if ( game->InitFromSaveGame( fullMapName + ".map", rw, savegameFile ) == false ) { // RAVEN/Q4: dropped idSoundWorld* arg
 			// If the loadgame failed, restart the map with the player persistent data
 			loadingSaveGame = false;
 			fileSystem->CloseFile( savegameFile );
 			savegameFile = NULL;
 
 			game->SetServerInfo( mapSpawnData.serverInfo );
-			game->InitFromNewMap( fullMapName + ".map", rw, sw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() );
+			game->InitFromNewMap( fullMapName + ".map", rw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() ); // RAVEN/Q4: dropped idSoundWorld* arg
 		}
 	} else {
 		game->SetServerInfo( mapSpawnData.serverInfo );
-		game->InitFromNewMap( fullMapName + ".map", rw, sw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() );
+		game->InitFromNewMap( fullMapName + ".map", rw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() ); // RAVEN/Q4: dropped idSoundWorld* arg
 	}
 
 	if ( !idAsyncNetwork::IsActive() && !loadingSaveGame ) {
@@ -1664,7 +1669,7 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	if ( !idAsyncNetwork::IsActive() && !loadingSaveGame ) {
 		// run a few frames to allow everything to settle
 		for ( i = 0; i < 10; i++ ) {
-			game->RunFrame( mapSpawnData.mapSpawnUsercmd );
+			game->RunFrame( mapSpawnData.mapSpawnUsercmd, 0, true, i ); // RAVEN/Q4: activeEditors=0, lastCatchupFrame=true, serverGameFrame=i
 		}
 	}
 
@@ -2666,7 +2671,7 @@ void idSessionLocal::Frame() {
 	// check for user info changes
 	if ( cvarSystem->GetModifiedFlags() & CVAR_USERINFO ) {
 		mapSpawnData.userInfo[0] = *cvarSystem->MoveCVarsToDict( CVAR_USERINFO );
-		game->SetUserInfo( 0, mapSpawnData.userInfo[0], false, false );
+		game->SetUserInfo( 0, mapSpawnData.userInfo[0], false ); // RAVEN/Q4: dropped canModify
 		cvarSystem->ClearModifiedFlags( CVAR_USERINFO );
 	}
 
@@ -2775,7 +2780,8 @@ void idSessionLocal::RunGameTic() {
 
 	// run the game logic every player move
 	int	start = Sys_Milliseconds();
-	gameReturn_t	ret = game->RunFrame( &cmd );
+	// RAVEN/Q4: v37 RunFrame( cmds, activeEditors, lastCatchupFrame, serverGameFrame )
+	gameReturn_t	ret = game->RunFrame( &cmd, 0, true, lastGameTic );
 
 	int end = Sys_Milliseconds();
 	time_gameFrame += end - start;	// note time used for com_speeds

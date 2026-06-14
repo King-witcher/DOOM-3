@@ -978,7 +978,7 @@ void idAsyncClient::ProcessReliableServerMessages( void ) {
 					cvarSystem->SetCVarsFromDict( info );
 					cvarSystem->ClearModifiedFlags( CVAR_USERINFO ); // don't emit back
 				}
-				game->SetUserInfo( clientNum, info, true, false );
+				game->SetUserInfo( clientNum, info, true ); // RAVEN/Q4: v37 SetUserInfo dropped the canModify arg
 				break;
 			}
 			case SERVER_RELIABLE_MESSAGE_SYNCEDCVARS: {
@@ -1035,7 +1035,7 @@ void idAsyncClient::ProcessReliableServerMessages( void ) {
 			}
 			case SERVER_RELIABLE_MESSAGE_ENTERGAME: {
 				SendUserInfoToServer();
-				game->SetUserInfo( clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true, false );
+				game->SetUserInfo( clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true ); // RAVEN/Q4: dropped canModify
 				cvarSystem->ClearModifiedFlags( CVAR_USERINFO );
 				break;
 			}
@@ -1849,7 +1849,7 @@ void idAsyncClient::RunFrame( void ) {
 	if ( cvarSystem->GetModifiedFlags() & CVAR_USERINFO ) {
 		game->ThrottleUserInfo( );
 		SendUserInfoToServer( );
-		game->SetUserInfo( clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true, false );
+		game->SetUserInfo( clientNum, sessLocal.mapSpawnData.userInfo[ clientNum ], true ); // RAVEN/Q4: dropped canModify
 		cvarSystem->ClearModifiedFlags( CVAR_USERINFO );
 	}
 

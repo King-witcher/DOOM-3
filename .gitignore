@@ -2,3 +2,8 @@ build
 run
 .vscode/settings.json
 q4
+
+# Quake4 port diagnostic artifacts
+.vscode/q4-trace.txt
+.vscode/q4-crash.txt
+.vscode/q4menu.png

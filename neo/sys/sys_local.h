@@ -51,15 +51,15 @@ public:
 	virtual void			FPU_SetFTZ( bool enable );
 	virtual void			FPU_SetDAZ( bool enable );
 
-	virtual void			FPU_EnableExceptions( int exceptions );
+	virtual void			FPU_SetPrecision( int flags );
+
+	virtual bool			LockMemory( void *ptr, int bytes );
+	virtual bool			UnlockMemory( void *ptr, int bytes );
 
 	virtual void			GetCallStack( address_t *callStack, const int callStackSize );
 	virtual const char *	GetCallStackStr( const address_t *callStack, const int callStackSize );
 	virtual const char *	GetCallStackCurStr( int depth );
 	virtual void			ShutdownSymbols( void );
-
-	virtual bool			LockMemory( void *ptr, int bytes );
-	virtual bool			UnlockMemory( void *ptr, int bytes );
 
 	virtual int				DLL_Load( const char *dllName );
 	virtual void *			DLL_GetProcAddress( int dllHandle, const char *procName );
@@ -69,8 +69,49 @@ public:
 	virtual sysEvent_t		GenerateMouseButtonEvent( int button, bool down );
 	virtual sysEvent_t		GenerateMouseMoveEvent( int deltax, int deltay );
 
+	// RAVEN: Quake 4 SDK additions (windowing / input / stdio for the game DLL)
+	virtual int				MapKey( unsigned long lParam, unsigned short wParam );
+	virtual void			AddKeyPress( int key, bool state );
+	virtual int				GetNumKeyPresses( void );
+	virtual	bool			GetKeyPress( const int n, int &key, bool &state );
+
+	virtual void *			CreateWindowEx( const char *className, const char *windowName, int style, int x, int y, int w, int h, void *parent, void *menu, void *instance, void *param, int extStyle = 0 );
+	virtual void *			GetDC( void *hWnd );
+	virtual	void			ReleaseDC( void *hWnd, void *hDC );
+	virtual	void			ShowWindow( void *hWnd, int show );
+	virtual	void			UpdateWindow( void *hWnd );
+	virtual bool			IsWindowVisible( void *hWnd );
+	virtual void			SetForegroundWindow( void *hWnd );
+	virtual void			SetFocus( void *hWnd );
+	virtual	void			DestroyWindow( void *hWnd );
+
+	virtual	void			ShowConsole( int visLevel, bool quitOnClose );
+	virtual	void			UpdateConsole( void );
+	virtual void			SetConsoleName( const char* consoleName );
+	virtual bool			IsAppActive( void ) const;
+	virtual	int				Milliseconds( void );
+	virtual void			InitInput( void );
+	virtual void			ShutdownInput( void );
+	virtual void			GenerateEvents( void );
+	virtual void			GrabMouseCursor( bool grabIt );
+
+	virtual FILE			*FOpen( const char *name, const char *mode );
+	virtual void			FPrintf( FILE *file, const char *fmt );
+	virtual int				FTell( FILE *file );
+	virtual int				FSeek( FILE *file, long offset, int mode );
+	virtual void			FClose( FILE *file );
+	virtual int				FRead( void *buffer, int size, int count, FILE *file );
+	virtual int				FWrite( void *buffer, int size, int count, FILE *file );
+	virtual	long			FileTimeStamp( FILE *file );
+	virtual int				FEof( FILE *stream  );
+	virtual char			*FGets( char *string, int n, FILE *stream );
+	virtual void			FFlush( FILE *f );
+	virtual int				SetVBuf( FILE *stream, char *buffer, int mode, size_t size  );
+
 	virtual void			OpenURL( const char *url, bool quit );
 	virtual void			StartProcess( const char *exeName, bool quit );
+
+	virtual int				GetGUID( char *buf, int buflen );
 };
 
 #endif /* !__SYS_LOCAL__ */

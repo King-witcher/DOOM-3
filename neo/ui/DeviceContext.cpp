@@ -66,8 +66,11 @@ int idDeviceContext::FindFont( const char *name ) {
 		idStr::Copynz( fonts[index].name, name, sizeof( fonts[index].name ) );
 		return index;
 		} else {
+		// cache the failed lookup by name so we don't re-append (and re-fail)
+		// a fresh slot on every subsequent lookup of the same font
+		idStr::Copynz( fonts[index].name, name, sizeof( fonts[index].name ) );
 		common->Printf( "Could not register font %s [%s]\n", name, fileName.c_str() );
-		return -1;
+		return index;
 }
 }
 

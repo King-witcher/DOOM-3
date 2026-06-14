@@ -534,8 +534,14 @@ void				Sys_TriggerEvent( int index = TRIGGER_EVENT_ZERO );
 ==============================================================
 */
 
+// RAVEN: Quake 4 1.4.2 SDK layout (GAME_API_VERSION 37). The retail gamex86.dll
+// calls idSys through this exact vtable; slot order must match byte-for-byte.
+// Notable deltas from DOOM 3: a virtual destructor at slot 0 (shifts every
+// slot by one), FPU_SetPrecision replaces FPU_EnableExceptions, and a large
+// block of Raven-added windowing / input / stdio services for the game DLL.
 class idSys {
 public:
+	virtual ~idSys() { }
 	virtual void			DebugPrintf( const char *fmt, ... )id_attribute((format(printf,2,3))) = 0;
 	virtual void			DebugVPrintf( const char *fmt, va_list arg ) = 0;
 
@@ -547,8 +553,9 @@ public:
 	virtual bool			FPU_StackIsEmpty( void ) = 0;
 	virtual void			FPU_SetFTZ( bool enable ) = 0;
 	virtual void			FPU_SetDAZ( bool enable ) = 0;
-
-	virtual void			FPU_EnableExceptions( int exceptions ) = 0;
+// RAVEN BEGIN
+	virtual void			FPU_SetPrecision( int flags ) = 0;
+// RAVEN END
 
 	virtual bool			LockMemory( void *ptr, int bytes ) = 0;
 	virtual bool			UnlockMemory( void *ptr, int bytes ) = 0;
@@ -566,8 +573,50 @@ public:
 	virtual sysEvent_t		GenerateMouseButtonEvent( int button, bool down ) = 0;
 	virtual sysEvent_t		GenerateMouseMoveEvent( int deltax, int deltay ) = 0;
 
+// RAVEN BEGIN
+	virtual int				MapKey( unsigned long lParam, unsigned short wParam ) = 0;
+	virtual void			AddKeyPress( int key, bool state ) = 0;
+	virtual int				GetNumKeyPresses( void ) = 0;
+	virtual	bool			GetKeyPress( const int n, int &key, bool &state ) = 0;
+
+	virtual void *			CreateWindowEx( const char *className, const char *windowName, int style, int x, int y, int w, int h, void *parent, void *menu, void *instance, void *param, int extStyle = 0 ) = 0;
+	virtual void *			GetDC( void *hWnd ) = 0;
+	virtual	void			ReleaseDC( void *hWnd, void *hDC ) = 0;
+	virtual	void			ShowWindow( void *hWnd, int show ) = 0;
+	virtual	void			UpdateWindow( void *hWnd ) = 0;
+	virtual bool			IsWindowVisible( void *hWnd ) = 0;
+	virtual void			SetForegroundWindow( void *hWnd ) = 0;
+	virtual void			SetFocus( void *hWnd ) = 0;
+	virtual	void			DestroyWindow( void *hWnd ) = 0;
+
+	virtual	void			ShowConsole( int visLevel, bool quitOnClose ) = 0;
+	virtual	void			UpdateConsole( void ) = 0;
+	virtual void			SetConsoleName( const char* consoleName ) = 0;
+	virtual bool			IsAppActive( void ) const = 0;
+	virtual	int				Milliseconds( void ) = 0;
+	virtual void			InitInput( void ) = 0;
+	virtual void			ShutdownInput( void ) = 0;
+	virtual void			GenerateEvents( void ) = 0;
+	virtual void			GrabMouseCursor( bool grabIt ) = 0;
+
+	virtual FILE			*FOpen( const char *name, const char *mode ) = 0;
+	virtual void			FPrintf( FILE *file, const char *fmt ) = 0;
+	virtual int				FTell( FILE *file ) = 0;
+	virtual int				FSeek( FILE *file, long offset, int mode ) = 0;
+	virtual void			FClose( FILE *file ) = 0;
+	virtual int				FRead( void *buffer, int size, int count, FILE *file ) = 0;
+	virtual int				FWrite( void *buffer, int size, int count, FILE *file ) = 0;
+	virtual	long			FileTimeStamp( FILE *file ) = 0;
+	virtual int				FEof( FILE *stream  ) = 0;
+	virtual char			*FGets( char *string, int n, FILE *stream ) = 0;
+	virtual void			FFlush( FILE *f ) = 0;
+	virtual int				SetVBuf( FILE *stream, char *buffer, int mode, size_t size  ) = 0;
+// RAVEN END
+
 	virtual void			OpenURL( const char *url, bool quit ) = 0;
 	virtual void			StartProcess( const char *exePath, bool quit ) = 0;
+
+	virtual int				GetGUID( char *buf, int buflen ) = 0;
 };
 
 extern idSys *				sys;

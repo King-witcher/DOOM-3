@@ -152,8 +152,167 @@ sysEvent_t idSysLocal::GenerateMouseMoveEvent( int deltax, int deltay ) {
 	return ev;
 }
 
-void idSysLocal::FPU_EnableExceptions( int exceptions ) {
-	Sys_FPU_EnableExceptions( exceptions );
+void idSysLocal::FPU_SetPrecision( int flags ) {
+	Sys_FPU_SetPrecision( flags );
+}
+
+// ===========================================================================
+// RAVEN: Quake 4 1.4.2 SDK additions to idSys. The retail gamex86.dll reaches
+// these through the v37 vtable; most are thin wrappers over existing engine
+// Sys_* services or the Win32 API (windows.h is in scope via precompiled.h).
+// ===========================================================================
+
+extern int MapKey( int key );		// win_wndproc.cpp
+
+int idSysLocal::MapKey( unsigned long lParam, unsigned short wParam ) {
+	// classic Win32 keydown: scancode in bits 16..23 of lParam
+	return ::MapKey( ( lParam >> 16 ) & 0xFF );
+}
+
+// Minimal key-press queue. The game polls these to read keyboard input; an
+// empty queue is harmless (booting to the menu needs no keyboard).
+void idSysLocal::AddKeyPress( int key, bool state ) {
+}
+
+int idSysLocal::GetNumKeyPresses( void ) {
+	return 0;
+}
+
+bool idSysLocal::GetKeyPress( const int n, int &key, bool &state ) {
+	key = 0;
+	state = false;
+	return false;
+}
+
+void *idSysLocal::CreateWindowEx( const char *className, const char *windowName, int style, int x, int y, int w, int h, void *parent, void *menu, void *instance, void *param, int extStyle ) {
+	return ::CreateWindowEx( extStyle, className, windowName, style, x, y, w, h, (HWND)parent, (HMENU)menu, (HINSTANCE)instance, param );
+}
+
+void *idSysLocal::GetDC( void *hWnd ) {
+	return ::GetDC( (HWND)hWnd );
+}
+
+void idSysLocal::ReleaseDC( void *hWnd, void *hDC ) {
+	::ReleaseDC( (HWND)hWnd, (HDC)hDC );
+}
+
+void idSysLocal::ShowWindow( void *hWnd, int show ) {
+	::ShowWindow( (HWND)hWnd, show );
+}
+
+void idSysLocal::UpdateWindow( void *hWnd ) {
+	::UpdateWindow( (HWND)hWnd );
+}
+
+bool idSysLocal::IsWindowVisible( void *hWnd ) {
+	return ::IsWindowVisible( (HWND)hWnd ) != FALSE;
+}
+
+void idSysLocal::SetForegroundWindow( void *hWnd ) {
+	::SetForegroundWindow( (HWND)hWnd );
+}
+
+void idSysLocal::SetFocus( void *hWnd ) {
+	::SetFocus( (HWND)hWnd );
+}
+
+void idSysLocal::DestroyWindow( void *hWnd ) {
+	::DestroyWindow( (HWND)hWnd );
+}
+
+void idSysLocal::ShowConsole( int visLevel, bool quitOnClose ) {
+	Sys_ShowConsole( visLevel, quitOnClose );
+}
+
+void idSysLocal::UpdateConsole( void ) {
+}
+
+void idSysLocal::SetConsoleName( const char *consoleName ) {
+}
+
+bool idSysLocal::IsAppActive( void ) const {
+	return true;
+}
+
+int idSysLocal::Milliseconds( void ) {
+	return Sys_Milliseconds();
+}
+
+void idSysLocal::InitInput( void ) {
+	Sys_InitInput();
+}
+
+void idSysLocal::ShutdownInput( void ) {
+	Sys_ShutdownInput();
+}
+
+void idSysLocal::GenerateEvents( void ) {
+	Sys_GenerateEvents();
+}
+
+void idSysLocal::GrabMouseCursor( bool grabIt ) {
+	Sys_GrabMouseCursor( grabIt );
+}
+
+FILE *idSysLocal::FOpen( const char *name, const char *mode ) {
+	return fopen( name, mode );
+}
+
+void idSysLocal::FPrintf( FILE *file, const char *fmt ) {
+	if ( file ) {
+		fputs( fmt, file );
+	}
+}
+
+int idSysLocal::FTell( FILE *file ) {
+	return file ? ftell( file ) : -1;
+}
+
+int idSysLocal::FSeek( FILE *file, long offset, int mode ) {
+	return file ? fseek( file, offset, mode ) : -1;
+}
+
+void idSysLocal::FClose( FILE *file ) {
+	if ( file ) {
+		fclose( file );
+	}
+}
+
+int idSysLocal::FRead( void *buffer, int size, int count, FILE *file ) {
+	return file ? (int)fread( buffer, size, count, file ) : 0;
+}
+
+int idSysLocal::FWrite( void *buffer, int size, int count, FILE *file ) {
+	return file ? (int)fwrite( buffer, size, count, file ) : 0;
+}
+
+long idSysLocal::FileTimeStamp( FILE *file ) {
+	return 0;
+}
+
+int idSysLocal::FEof( FILE *stream ) {
+	return stream ? feof( stream ) : 1;
+}
+
+char *idSysLocal::FGets( char *string, int n, FILE *stream ) {
+	return stream ? fgets( string, n, stream ) : NULL;
+}
+
+void idSysLocal::FFlush( FILE *f ) {
+	if ( f ) {
+		fflush( f );
+	}
+}
+
+int idSysLocal::SetVBuf( FILE *stream, char *buffer, int mode, size_t size ) {
+	return stream ? setvbuf( stream, buffer, mode, size ) : -1;
+}
+
+int idSysLocal::GetGUID( char *buf, int buflen ) {
+	if ( buf && buflen > 0 ) {
+		buf[0] = '\0';
+	}
+	return 0;
 }
 
 /*

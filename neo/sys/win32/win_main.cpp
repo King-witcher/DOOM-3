@@ -1357,12 +1357,56 @@ EXCEPTION_DISPOSITION __cdecl _except_handler( struct _EXCEPTION_RECORD *Excepti
 							/*	FPU_EXCEPTION_INEXACT_RESULT |			*/	\
 								0
 
+// ===== Quake4 port: crash-diagnostic Vectored Exception Handler =====
+static volatile long q4_faultCount = 0;
+
+static void Q4_LogFault( const char *tag, void *addr ) {
+	HMODULE hmod = NULL;
+	char modpath[MAX_PATH] = "?";
+	uintptr_t off = 0;
+	if ( GetModuleHandleEx( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			(LPCSTR)addr, &hmod ) && hmod ) {
+		GetModuleFileNameA( hmod, modpath, sizeof( modpath ) );
+		off = (uintptr_t)addr - (uintptr_t)hmod;
+	}
+	FILE *f = fopen( "C:\\code\\id\\DOOM-3\\.vscode\\q4-crash.txt", "a" );
+	if ( f ) {
+		fprintf( f, "%s addr=%p module=%s base=%p offset=0x%p\n", tag, addr, modpath, (void *)hmod, (void *)off );
+		fclose( f );
+	}
+	char buf[512];
+	idStr::snPrintf( buf, sizeof( buf ), "[Q4CRASH] %s addr=%p module=%s offset=0x%p\n", tag, addr, modpath, (void *)off );
+	OutputDebugStringA( buf );
+}
+
+static LONG WINAPI Q4_VEH( EXCEPTION_POINTERS *ep ) {
+	DWORD code = ep->ExceptionRecord->ExceptionCode;
+	bool isFP = ( code >= 0xC0000090 && code <= 0xC0000095 );
+	if ( isFP || code == EXCEPTION_ACCESS_VIOLATION ) {
+		if ( InterlockedIncrement( &q4_faultCount ) <= 16 ) {
+			char tag[64];
+			idStr::snPrintf( tag, sizeof( tag ), "exc=0x%08lX", code );
+			Q4_LogFault( tag, ep->ExceptionRecord->ExceptionAddress );
+		}
+		if ( isFP ) {
+			// swallow + recover: mask all x87 exceptions, clear the status/busy bits,
+			// then resume the faulting instruction (now masked => no re-fault)
+			ep->ContextRecord->FloatSave.ControlWord |= 0x3F;
+			ep->ContextRecord->FloatSave.StatusWord &= ~0x80FF;
+			return EXCEPTION_CONTINUE_EXECUTION;
+		}
+	}
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+
 /*
 ==================
 WinMain
 ==================
 */
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow ) {
+
+	AddVectoredExceptionHandler( 1, Q4_VEH );
 
 	const HCURSOR hcurSave = ::SetCursor( LoadCursor( 0, IDC_WAIT ) );
 

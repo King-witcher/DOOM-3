@@ -53,7 +53,7 @@ void idDeclEntityDef::FreeData( void ) {
 idDeclEntityDef::Parse
 ================
 */
-bool idDeclEntityDef::Parse( const char *text, const int textLength ) {
+bool idDeclEntityDef::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken	token, token2;
 

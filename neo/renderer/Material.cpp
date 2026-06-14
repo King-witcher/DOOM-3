@@ -2119,7 +2119,7 @@ idMaterial::Parse
 Parses the current material definition and finds all necessary images.
 =========================
 */
-bool idMaterial::Parse( const char *text, const int textLength ) {
+bool idMaterial::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer	src;
 	idToken	token;
 	mtrParsingData_t parsingData;

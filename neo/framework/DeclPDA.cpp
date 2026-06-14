@@ -61,7 +61,7 @@ void idDeclPDA::List( void ) const {
 idDeclPDA::Parse
 ================
 */
-bool idDeclPDA::Parse( const char *text, const int textLength ) {
+bool idDeclPDA::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken token;
 
@@ -352,7 +352,7 @@ void idDeclEmail::List( void ) const {
 idDeclEmail::Parse
 ================
 */
-bool idDeclEmail::Parse( const char *_text, const int textLength ) {
+bool idDeclEmail::Parse( const char *_text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken token;
 
@@ -478,7 +478,7 @@ void idDeclVideo::List( void ) const {
 idDeclVideo::Parse
 ================
 */
-bool idDeclVideo::Parse( const char *text, const int textLength ) {
+bool idDeclVideo::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken token;
 
@@ -592,7 +592,7 @@ void idDeclAudio::List( void ) const {
 idDeclAudio::Parse
 ================
 */
-bool idDeclAudio::Parse( const char *text, const int textLength ) {
+bool idDeclAudio::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken token;
 

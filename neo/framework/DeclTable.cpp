@@ -109,7 +109,7 @@ const char *idDeclTable::DefaultDefinition( void ) const {
 idDeclTable::Parse
 =================
 */
-bool idDeclTable::Parse( const char *text, const int textLength ) {
+bool idDeclTable::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken token;
 	float v;

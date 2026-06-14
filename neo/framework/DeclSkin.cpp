@@ -53,7 +53,7 @@ void idDeclSkin::FreeData( void ) {
 idDeclSkin::Parse
 ================
 */
-bool idDeclSkin::Parse( const char *text, const int textLength ) {
+bool idDeclSkin::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken	token, token2;
 

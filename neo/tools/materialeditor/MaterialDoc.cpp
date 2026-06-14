@@ -662,7 +662,7 @@ void MaterialDoc::ParseMaterialText(const char* source) {
 	src.SkipUntilString("{");*/
 
 	//Now let the material parse the text
-	renderMaterial->Parse(source, strlen(source));
+	renderMaterial->Parse(source, strlen(source), false);		// RAVEN: idDecl::Parse gained noCaching (Quake 4 v37)
 }
 
 /**

@@ -101,19 +101,29 @@ public:
 	virtual size_t				Size( void ) const;
 	virtual void				GetText( char *text ) const;
 	virtual int					GetTextLength( void ) const;
+// RAVEN BEGIN (Quake 4 SDK v37 vtable slot)
+	virtual int					GetCompressedLength( void ) const;
+// RAVEN END
 	virtual void				SetText( const char *text );
 	virtual bool				ReplaceSourceFileText( void );
 	virtual bool				SourceFileChanged( void ) const;
 	virtual void				MakeDefault( void );
 	virtual bool				EverReferenced( void ) const;
+// RAVEN BEGIN (Quake 4 SDK v37 vtable slot)
+	virtual void				SetReferencedThisLevel( void );
+// RAVEN END
 
 protected:
 	virtual bool				SetDefaultText( void );
 	virtual const char *		DefaultDefinition( void ) const;
-	virtual bool				Parse( const char *text, const int textLength );
+	virtual bool				Parse( const char *text, const int textLength, bool noCaching );
 	virtual void				FreeData( void );
 	virtual void				List( void ) const;
 	virtual void				Print( void ) const;
+// RAVEN BEGIN (Quake 4 SDK v37 vtable slots)
+	virtual bool				RebuildTextSource( void );
+	virtual bool				Validate( const char *psText, int iLength, idStr &strReportTo ) const;
+// RAVEN END
 
 protected:
 	void						AllocateSelf( void );
@@ -1180,16 +1190,21 @@ const idDecl *idDeclManagerLocal::FindType( declType_t type, const char *name, b
 		//common->Warning( "idDeclManager::FindType: empty %s name", GetDeclType( (int)type )->typeName.c_str() );
 	}
 
+	{ extern bool g_q4Trace; if(g_q4Trace && !idStr::Icmp(name,"aas_types")) common->Printf("[Q4trace] FindType(aas_types) ENTER\n"); }
 	decl = FindTypeWithoutParsing( type, name, makeDefault );
 	if ( !decl ) {
 		return NULL;
 	}
+	{ extern bool g_q4Trace; if(g_q4Trace && !idStr::Icmp(name,"aas_types")) common->Printf("[Q4trace]   aas_types: FindTypeWithoutParsing OK\n"); }
 
 	decl->AllocateSelf();
+	{ extern bool g_q4Trace; if(g_q4Trace && !idStr::Icmp(name,"aas_types")) common->Printf("[Q4trace]   aas_types: AllocateSelf OK\n"); }
 
 	// if it hasn't been parsed yet, parse it now
 	if ( decl->declState == DS_UNPARSED ) {
+		{ extern bool g_q4Trace; if(g_q4Trace && !idStr::Icmp(name,"aas_types")) common->Printf("[Q4trace]   aas_types: calling ParseLocal()...\n"); }
 		decl->ParseLocal();
+		{ extern bool g_q4Trace; if(g_q4Trace && !idStr::Icmp(name,"aas_types")) common->Printf("[Q4trace]   aas_types: ParseLocal() OK\n"); }
 	}
 
 	// mark it as referenced
@@ -1199,6 +1214,7 @@ const idDecl *idDeclManagerLocal::FindType( declType_t type, const char *name, b
 		decl->parsedOutsideLevelLoad = false;
 	}
 
+	{ extern bool g_q4Trace; if(g_q4Trace && !idStr::Icmp(name,"aas_types")) common->Printf("[Q4trace] FindType(aas_types) parsed OK, returning decl\n"); }
 	return decl->self;
 }
 
@@ -2055,6 +2071,15 @@ int idDeclLocal::GetTextLength( void ) const {
 
 /*
 =================
+idDeclLocal::GetCompressedLength
+=================
+*/
+int idDeclLocal::GetCompressedLength( void ) const {
+	return compressedLength;
+}
+
+/*
+=================
 idDeclLocal::SetText
 =================
 */
@@ -2229,7 +2254,7 @@ void idDeclLocal::MakeDefault() {
 	self->FreeData();
 
 	// parse
-	self->Parse( defaultText, strlen( defaultText ) );
+	self->Parse( defaultText, strlen( defaultText ), false );
 
 	// we could still eventually hit the recursion if we have enough Error() calls inside Parse...
 	--recursionLevel;
@@ -2258,13 +2283,40 @@ const char *idDeclLocal::DefaultDefinition() const {
 idDeclLocal::Parse
 =================
 */
-bool idDeclLocal::Parse( const char *text, const int textLength ) {
+bool idDeclLocal::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 
 	src.LoadMemory( text, textLength, GetFileName(), GetLineNum() );
 	src.SetFlags( DECL_LEXER_FLAGS );
 	src.SkipUntilString( "{" );
 	src.SkipBracedSection( false );
+	return true;
+}
+
+/*
+=================
+idDeclLocal::SetReferencedThisLevel
+=================
+*/
+void idDeclLocal::SetReferencedThisLevel( void ) {
+	referencedThisLevel = true;
+}
+
+/*
+=================
+idDeclLocal::RebuildTextSource
+=================
+*/
+bool idDeclLocal::RebuildTextSource( void ) {
+	return false;
+}
+
+/*
+=================
+idDeclLocal::Validate
+=================
+*/
+bool idDeclLocal::Validate( const char *psText, int iLength, idStr &strReportTo ) const {
 	return true;
 }
 
@@ -2349,7 +2401,7 @@ void idDeclLocal::ParseLocal( void ) {
 	// parse
 	char *declText = (char *) _alloca( ( GetTextLength() + 1 ) * sizeof( char ) );
 	GetText( declText );
-	self->Parse( declText, GetTextLength() );
+	self->Parse( declText, GetTextLength(), false );
 
 	// free generated text
 	if ( generatedDefaultText ) {

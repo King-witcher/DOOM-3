@@ -1427,7 +1427,7 @@ bool idDeclAF::ParseSettings( idLexer &src ) {
 idDeclAF::Parse
 ================
 */
-bool idDeclAF::Parse( const char *text, const int textLength ) {
+bool idDeclAF::Parse( const char *text, const int textLength, bool noCaching ) {
 	int i, j;
 	idLexer src;
 	idToken token;

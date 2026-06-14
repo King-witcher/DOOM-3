@@ -133,18 +133,30 @@ public:
 	virtual const char *	GetFileName( void ) const = 0;
 	virtual void			GetText( char *text ) const = 0;
 	virtual int				GetTextLength( void ) const = 0;
+// RAVEN BEGIN (Quake 4 SDK v37 vtable slot)
+	virtual int				GetCompressedLength( void ) const = 0;
+// RAVEN END
 	virtual void			SetText( const char *text ) = 0;
 	virtual bool			ReplaceSourceFileText( void ) = 0;
 	virtual bool			SourceFileChanged( void ) const = 0;
 	virtual void			MakeDefault( void ) = 0;
 	virtual bool			EverReferenced( void ) const = 0;
+// RAVEN BEGIN (Quake 4 SDK v37 vtable slot)
+	virtual void			SetReferencedThisLevel( void ) = 0;
+// RAVEN END
 	virtual bool			SetDefaultText( void ) = 0;
 	virtual const char *	DefaultDefinition( void ) const = 0;
-	virtual bool			Parse( const char *text, const int textLength ) = 0;
+	virtual bool			Parse( const char *text, const int textLength, bool noCaching ) = 0;
 	virtual void			FreeData( void ) = 0;
 	virtual size_t			Size( void ) const = 0;
 	virtual void			List( void ) const = 0;
 	virtual void			Print( void ) const = 0;
+// RAVEN BEGIN (Quake 4 SDK v37 vtable slots)
+// jscott: to prevent a recursive crash
+	virtual	bool			RebuildTextSource( void ) { return( false ); }
+// scork: Validation call for detailed error-reporting
+	virtual bool			Validate( const char *psText, int iLength, idStr &strReportTo ) const = 0;
+// RAVEN END
 };
 
 
@@ -195,6 +207,9 @@ public:
 							// Returns the length of the decl text.
 	int						GetTextLength( void ) const { return base->GetTextLength(); }
 
+							// Returns the compressed length of the decl text.
+	int						GetCompressedLength( void ) const { return( base->GetCompressedLength() ); }
+
 							// Sets new decl text.
 	void					SetText( const char *text ) { base->SetText( text ); }
 
@@ -230,7 +245,7 @@ public:
 							// The manager will have called FreeData() before issuing a Parse().
 							// The subclass can call MakeDefault() internally at any point if
 							// there are parse errors.
-	virtual bool			Parse( const char *text, const int textLength ) { return base->Parse( text, textLength ); }
+	virtual bool			Parse( const char *text, const int textLength, bool noCaching ) { return base->Parse( text, textLength, noCaching ); }
 
 							// Frees any pointers held by the subclass. This may be called before
 							// any Parse(), so the constructor must have set sane values. The decl will be
@@ -250,6 +265,19 @@ public:
 							// and common data, subclasses can override this to dump more
 							// explicit data.
 	virtual void			Print( void ) const { base->Print(); }
+
+// RAVEN BEGIN (Quake 4 SDK v37 vtable slots)
+// Default bodies so the engine decl subclasses do not each need to implement
+// these; only the slot position matters for ABI compatibility with the retail DLL.
+							// Rebuilds the text source of the decl for saving
+	virtual	bool			RebuildTextSource( void ) { return( false ); }
+
+							// Marks this decl as referenced this level
+	virtual void			SetReferencedThisLevel( void ) { if ( base ) { base->SetReferencedThisLevel(); } }
+
+// scork: for detailed error reporting
+	virtual bool			Validate( const char *psText, int iLength, idStr &strReportTo ) const { return true; }
+// RAVEN END
 
 public:
 	idDeclBase *			base;

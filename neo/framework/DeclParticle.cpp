@@ -420,7 +420,7 @@ idParticleStage *idDeclParticle::ParseParticleStage( idLexer &src ) {
 idDeclParticle::Parse
 ================
 */
-bool idDeclParticle::Parse( const char *text, const int textLength ) {
+bool idDeclParticle::Parse( const char *text, const int textLength, bool noCaching ) {
 	idLexer src;
 	idToken	token;
 

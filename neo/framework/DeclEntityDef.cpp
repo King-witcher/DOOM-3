@@ -122,7 +122,10 @@ bool idDeclEntityDef::Parse( const char *text, const int textLength, bool noCach
 
 	// precache all referenced media
 	// do this as long as we arent in modview
-	if ( !( com_editors & (EDITOR_RADIANT|EDITOR_AAS) ) ) {
+	// RAVEN/Q4 TEMP: skipped while the idGame vtable is only partially ported to
+	// v37 -- game->CacheDictionaryMedia lands on a misaligned slot and hangs.
+	// Re-enable after the full idGame port. (Media just loads lazily until then.)
+	if ( false && !( com_editors & (EDITOR_RADIANT|EDITOR_AAS) ) ) {
 		game->CacheDictionaryMedia( &dict );
 	}
 

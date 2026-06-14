@@ -341,8 +341,8 @@ class idFileSystemLocal : public idFileSystem {
 public:
 							idFileSystemLocal( void );
 
+	// --- Q4 1.4.2 SDK (v37) vtable order ---------------------------------
 	virtual void			Init( void );
-	virtual void			StartBackgroundDownloadThread( void );
 	virtual void			Restart( void );
 	virtual void			Shutdown( bool reloading );
 	virtual bool			IsInitialized( void ) const;
@@ -363,14 +363,22 @@ public:
 	virtual void			GetPureServerChecksums( int checksums[ MAX_PURE_PAKS ], int OS, int *gamePakChecksum );
 	virtual void			SetRestartChecksums( const int pureChecksums[ MAX_PURE_PAKS ], int gamePakChecksum );
 	virtual	void			ClearPureChecksums( void );
-	virtual int				GetOSMask( void );
+	virtual unsigned int	GetOSMask( void );
 	virtual int				ReadFile( const char *relativePath, void **buffer, ID_TIME_T *timestamp );
 	virtual void			FreeFile( void *buffer );
 	virtual int				WriteFile( const char *relativePath, const void *buffer, int size, const char *basePath = "fs_savepath" );
-	virtual void			RemoveFile( const char *relativePath );	
-	virtual idFile *		OpenFileReadFlags( const char *relativePath, int searchFlags, pack_t **foundInPak = NULL, bool allowCopyFiles = true, const char* gamedir = NULL );
+	virtual void			RemoveFile( const char *relativePath, const char *basePath = "fs_savepath" );
+	virtual int				RemoveExplicitFile( const char *OSPath );
+	virtual void			SetIsFileLoadingAllowed( bool mode );
+	virtual bool			GetIsFileLoadingAllowed( void ) const;
+	virtual void			SetAssetLogName( const char *logName );
+	virtual void			WriteAssetLog( void );
+	virtual void			ClearAssetLog( void );
+	virtual const char*		GetAssetLogName( void );
+	virtual idFile *		GetNewFileMemory( void );
+	virtual idFile *		GetNewFilePermanent( void );
 	virtual idFile *		OpenFileRead( const char *relativePath, bool allowCopyFiles = true, const char* gamedir = NULL );
-	virtual idFile *		OpenFileWrite( const char *relativePath, const char *basePath = "fs_savepath" );
+	virtual idFile *		OpenFileWrite( const char *relativePath, const char *basePath = "fs_savepath", bool ASCII = false );
 	virtual idFile *		OpenFileAppend( const char *relativePath, bool sync = false, const char *basePath = "fs_basepath"   );
 	virtual idFile *		OpenFileByMode( const char *relativePath, fsMode_t mode );
 	virtual idFile *		OpenExplicitFileRead( const char *OSPath );
@@ -378,21 +386,44 @@ public:
 	virtual void			CloseFile( idFile *f );
 	virtual void			BackgroundDownload( backgroundDownload_t *bgl );
 	virtual void			ResetReadCount( void ) { readCount = 0; }
-	virtual void			AddToReadCount( int c ) { readCount += c; }
 	virtual int				GetReadCount( void ) { return readCount; }
+	virtual void			AddToReadCount( int c ) { readCount += c; }
 	virtual void			FindDLL( const char *basename, char dllPath[ MAX_OSPATH ], bool updateChecksum );
 	virtual void			ClearDirCache( void );
-	virtual bool			HasD3XP( void );
-	virtual bool			RunningD3XP( void );
-	virtual void			CopyFile( const char *fromOSPath, const char *toOSPath );
+	virtual int				RelativeDownloadPathForChecksum( int checksum, char path[ MAX_STRING_CHARS ] );
 	virtual int				ValidateDownloadPakForChecksum( int checksum, char path[ MAX_STRING_CHARS ], bool isBinary );
+	virtual int				ValidateDownloadPakForRelativePath( const char *relativePath, char path[ MAX_STRING_CHARS ], bool &isGamePakReturn );
 	virtual idFile *		MakeTemporaryFile( void );
 	virtual int				AddZipFile( const char *path );
-	virtual findFile_t		FindFile( const char *path, bool scheduleAddons );
+	virtual findFile_t		FindFile( const char *path );
 	virtual int				GetNumMaps();
+	virtual int				GetMapDeclIndex( const char *mapName );
 	virtual const idDict *	GetMapDecl( int i );
+	virtual const idDict *	GetMapDecl( const char *mapName );
 	virtual void			FindMapScreenshot( const char *path, char *buf, int len );
-	virtual bool			FilenameCompare( const char *s1, const char *s2 ) const;
+	virtual bool			OSpathToImportPath( const char *osPath, idStr &iPath, bool stripTemp = false );
+	virtual idFile *		OpenImportFileRead( const char *filename );
+	virtual void			CopyOSFile( const char *fromOSPath, const char *toOSPath );
+	virtual void			CopyOSFile( idFile *src, const char *toOSPath );
+	virtual void			WriteDemoHeader( idFile *file );
+	virtual int				ReadDemoHeader( idFile *file );
+	virtual bool			IsRunningWithRestrictions( void );
+	virtual void			ReadCodePakLists( const idBitMsg &msg );
+	virtual bool			HaveCodePakLists( void ) const;
+	virtual void			SelectDefaultLanguage( void );
+	virtual void			ClearAddonList( void );
+
+	// --- non-virtual helpers (NOT in the Q4 vtable) ----------------------
+	// engine-internal only; kept off the vtable so the ABI slots match the SDK
+	void					StartBackgroundDownloadThread( void );
+	idFile *				OpenFileReadFlags( const char *relativePath, int searchFlags, pack_t **foundInPak = NULL, bool allowCopyFiles = true, const char* gamedir = NULL );
+							// used internally throughout FileSystem.cpp (was a virtual in DOOM 3)
+	bool					FilenameCompare( const char *s1, const char *s2 ) const;
+							// addon-aware FindFile used by the engine networking path (schedules addons for reload)
+	findFile_t				FindFileAddon( const char *path, bool scheduleAddons );
+
+	// NOTE: HasD3XP()/RunningD3XP() are provided as non-virtual stubs on the
+	// idFileSystem base class (Quake 4 has no Doom 3 expansion content).
 
 	static void				Dir_f( const idCmdArgs &args );
 	static void				DirTree_f( const idCmdArgs &args );
@@ -445,6 +476,10 @@ private:
 
 	int						d3xp;	// 0: didn't check, -1: not installed, 1: installed
 
+	// Quake 4 1.4.2 SDK additions
+	bool					fileLoadingAllowed;	// SetIsFileLoadingAllowed / GetIsFileLoadingAllowed
+	idStr					assetLogName;		// SetAssetLogName / GetAssetLogName
+
 private:
 	void					ReplaceSeparators( idStr &path, char sep = PATHSEPERATOR_CHAR );
 	long					HashFileName( const char *fname ) const;
@@ -452,7 +487,6 @@ private:
 	FILE *					OpenOSFile( const char *name, const char *mode, idStr *caseSensitiveName = NULL );
 	FILE *					OpenOSFileCorrectName( idStr &path, const char *mode );
 	int						DirectFileLength( FILE *o );
-	void					CopyFile( idFile *src, const char *toOSPath );
 	int						AddUnique( const char *name, idStrList &list, idHashIndex &hashIndex ) const;
 	void					GetExtensionList( const char *extension, idStrList &extensionList ) const;
 	int						GetFileList( const char *relativePath, const idStrList &extensions, idStrList &list, idHashIndex &hashIndex, bool fullRelativePath, const char* gamedir = NULL );
@@ -516,6 +550,7 @@ idFileSystemLocal::idFileSystemLocal( void ) {
 	restartGamePakChecksum = 0;
 	memset( &backgroundThread, 0, sizeof( backgroundThread ) );
 	addonPaks = NULL;
+	fileLoadingAllowed = true;	// Q4 SDK: file loading allowed by default
 }
 
 /*
@@ -703,12 +738,13 @@ void idFileSystemLocal::CreateOSPath( const char *OSPath ) {
 
 /*
 =================
-idFileSystemLocal::CopyFile
+idFileSystemLocal::CopyOSFile
 
 Copy a fully specified file from one place to another
+( Quake 4 SDK name; was DOOM 3 CopyFile )
 =================
 */
-void idFileSystemLocal::CopyFile( const char *fromOSPath, const char *toOSPath ) {
+void idFileSystemLocal::CopyOSFile( const char *fromOSPath, const char *toOSPath ) {
 	FILE	*f;
 	int		len;
 	byte	*buf;
@@ -744,10 +780,11 @@ void idFileSystemLocal::CopyFile( const char *fromOSPath, const char *toOSPath )
 
 /*
 =================
-idFileSystemLocal::CopyFile
+idFileSystemLocal::CopyOSFile
+( Quake 4 SDK name; was DOOM 3 CopyOSFile( idFile *, const char * ) )
 =================
 */
-void idFileSystemLocal::CopyFile( idFile *src, const char *toOSPath ) {
+void idFileSystemLocal::CopyOSFile( idFile *src, const char *toOSPath ) {
 	FILE	*f;
 	int		len;
 	byte	*buf;
@@ -951,8 +988,10 @@ const char *idFileSystemLocal::RelativePathToOSPath( const char *relativePath, c
 idFileSystemLocal::RemoveFile
 =================
 */
-void idFileSystemLocal::RemoveFile( const char *relativePath ) {
+void idFileSystemLocal::RemoveFile( const char *relativePath, const char *basePath ) {
 	idStr OSPath;
+	// Quake 4 SDK adds the basePath argument; DOOM 3 always removed from
+	// devpath + savepath, so we keep that behavior (basePath unused).
 
 	if ( fs_devpath.GetString()[0] ) {
 		OSPath = BuildOSPath( fs_devpath.GetString(), gameFolder, relativePath );
@@ -2028,7 +2067,7 @@ void idFileSystemLocal::Path_f( const idCmdArgs &args ) {
 idFileSystemLocal::GetOSMask
 ============
 */
-int idFileSystemLocal::GetOSMask( void ) {
+unsigned int idFileSystemLocal::GetOSMask( void ) {
 	int i, ret = 0;
 	for( i = 0; i < MAX_GAME_OS; i++ ) {
 		if ( fileSystemLocal.gamePakForOS[ i ] ) {
@@ -2036,9 +2075,9 @@ int idFileSystemLocal::GetOSMask( void ) {
 		}
 	}
 	if ( !ret ) {
-		return -1;
+		return (unsigned int)-1;
 	}
-	return ret;
+	return (unsigned int)ret;
 }
 
 /*
@@ -3251,13 +3290,13 @@ idFile *idFileSystemLocal::OpenFileReadFlags( const char *relativePath, int sear
 					case 1:
 						// copy from cd path only
 						if ( isFromCDPath ) {
-							CopyFile( netpath, copypath );
+							CopyOSFile( netpath, copypath );
 						}
 						break;
 					case 2:
 						// from cd path + timestamps
 						if ( isFromCDPath ) {
-							CopyFile( netpath, copypath );
+							CopyOSFile( netpath, copypath );
 						} else if ( isFromSavePath || isFromBasePath ) {
 							idStr sourcepath;
 							sourcepath = BuildOSPath( fs_cdpath.GetString(), dir->gamedir, relativePath );
@@ -3270,7 +3309,7 @@ idFile *idFileSystemLocal::OpenFileReadFlags( const char *relativePath, int sear
 									ID_TIME_T t2 = Sys_FileTimeStamp( f2 );
 									fclose( f2 );
 									if ( t1 > t2 ) {
-										CopyFile( sourcepath, copypath );
+										CopyOSFile( sourcepath, copypath );
 									}
 								}
 							}
@@ -3278,12 +3317,12 @@ idFile *idFileSystemLocal::OpenFileReadFlags( const char *relativePath, int sear
 						break;
 					case 3:
 						if ( isFromCDPath || isFromBasePath ) {
-							CopyFile( netpath, copypath );
+							CopyOSFile( netpath, copypath );
 						}
 						break;
 					case 4:
 						if ( isFromCDPath && !isFromBasePath ) {
-							CopyFile( netpath, copypath );
+							CopyOSFile( netpath, copypath );
 						}
 						break;
 				}
@@ -3394,11 +3433,13 @@ idFile *idFileSystemLocal::OpenFileRead( const char *relativePath, bool allowCop
 idFileSystemLocal::OpenFileWrite
 ===========
 */
-idFile *idFileSystemLocal::OpenFileWrite( const char *relativePath, const char *basePath ) {
+idFile *idFileSystemLocal::OpenFileWrite( const char *relativePath, const char *basePath, bool ASCII ) {
 	const char *path;
 	idStr OSpath;
 	idFile_Permanent *f;
 
+	// Quake 4 SDK adds the ASCII argument. DOOM 3 always opened files in binary
+	// mode ("wb"); honor a request for text mode when ASCII is set.
 	if ( !searchPaths ) {
 		common->FatalError( "Filesystem call made without initialization\n" );
 	}
@@ -3422,7 +3463,7 @@ idFile *idFileSystemLocal::OpenFileWrite( const char *relativePath, const char *
 	CreateOSPath( OSpath );
 
 	f = new idFile_Permanent();
-	f->o = OpenOSFile( OSpath, "wb" );
+	f->o = OpenOSFile( OSpath, ASCII ? "w" : "wb" );
 	if ( !f->o ) {
 		delete f;
 		return NULL;
@@ -3891,7 +3932,7 @@ void idFileSystemLocal::FindDLL( const char *name, char _dllPath[ MAX_OSPATH ], 
 			if ( dllFile ) {
 				common->Printf( "found DLL in pak file: %s\n", dllFile->GetFullPath() );
 				dllPath = RelativePathToOSPath( dllName, "fs_savepath" );
-				CopyFile( dllFile, dllPath );
+				CopyOSFile( dllFile, dllPath );
 				CloseFile( dllFile );
 				dllFile = OpenFileReadFlags( dllName, FSFLAG_SEARCH_DIRS );
 				if ( !dllFile ) {
@@ -3930,7 +3971,7 @@ void idFileSystemLocal::FindDLL( const char *name, char _dllPath[ MAX_OSPATH ], 
 						dllFile = ReadFileFromZip( pak, pakFile, dllName );
 						common->Printf( "found DLL in game pak file: %s\n", pak->pakFilename.c_str() );
 						dllPath = RelativePathToOSPath( dllName, "fs_savepath" );
-						CopyFile( dllFile, dllPath );
+						CopyOSFile( dllFile, dllPath );
 						CloseFile( dllFile );
 						dllFile = OpenFileReadFlags( dllName, FSFLAG_SEARCH_DIRS );
 						if ( !dllFile ) {
@@ -3977,91 +4018,10 @@ void idFileSystemLocal::ClearDirCache( void ) {
 	}
 }
 
-/*
-===============
-idFileSystemLocal::HasD3XP
-===============
-*/
-bool idFileSystemLocal::HasD3XP( void ) {
-	int			i;
-	idStrList	dirs, pk4s;
-	idStr		gamepath;
-
-	if ( d3xp == -1 ) {
-		return false;
-	} else if ( d3xp == 1 ) {
-		return true;
-	}
-	
-#if 0
-	// check for a d3xp directory with a pk4 file
-	// copied over from ListMods - only looks in basepath
-	ListOSFiles( fs_basepath.GetString(), "/", dirs );
-	for ( i = 0; i < dirs.Num(); i++ ) {
-		if ( dirs[i].Icmp( "d3xp" ) == 0 ) {
-			gamepath = BuildOSPath( fs_basepath.GetString(), dirs[ i ], "" );
-			ListOSFiles( gamepath, ".pk4", pk4s );
-			if ( pk4s.Num() ) {
-				d3xp = 1;
-				return true;
-			}
-		}
-	}
-#elif ID_ALLOW_D3XP
-	// check for d3xp's d3xp/pak000.pk4 in any search path
-	// checking wether the pak is loaded by checksum wouldn't be enough:
-	// we may have a different fs_game right now but still need to reply that it's installed
-	const char	*search[4];
-	idFile	  	*pakfile;
-	search[0] = fs_savepath.GetString();
-	search[1] = fs_devpath.GetString();
-	search[2] = fs_basepath.GetString();
-	search[3] = fs_cdpath.GetString();
-	for ( i = 0; i < 4; i++ ) {
-		pakfile = OpenExplicitFileRead( BuildOSPath( search[ i ], "d3xp", "pak000.pk4" ) );
-		if ( pakfile ) {
-			CloseFile( pakfile );
-			d3xp = 1;
-			return true;
-		}
-	}
-#endif
-
-#if ID_ALLOW_D3XP
-	// if we didn't find a pk4 file then the user might have unpacked so look for default.cfg file
-	// that's the old way mostly used during developement. don't think it hurts to leave it there
-	ListOSFiles( fs_basepath.GetString(), "/", dirs );
-	for ( i = 0; i < dirs.Num(); i++ ) {
-		if ( dirs[i].Icmp( "d3xp" ) == 0 ) {
-			
-			gamepath = BuildOSPath( fs_savepath.GetString(), dirs[ i ], "default.cfg" );
-			idFile* cfg = OpenExplicitFileRead(gamepath);
-			if(cfg) {
-				CloseFile(cfg);
-				d3xp = 1;
-				return true;
-			}
-		}
-	}
-#endif
-	d3xp = -1;
-	return false;
-}
-
-/*
-===============
-idFileSystemLocal::RunningD3XP
-===============
-*/
-bool idFileSystemLocal::RunningD3XP( void ) {
-	// TODO: mark the checksum of the gold XP and check for it being referenced ( for double mod support )
-	// a simple fs_game check should be enough for now..
-	if ( !idStr::Icmp( fs_game.GetString(), "d3xp" ) ||
-		 !idStr::Icmp( fs_game_base.GetString(), "d3xp" ) ) {
-		return true;
-	}
-	return false;
-}
+// NOTE: HasD3XP()/RunningD3XP() were DOOM 3 virtuals. They are removed from the
+// Quake 4 vtable and replaced by non-virtual base-class stubs (return false) in
+// FileSystem.h, since Quake 4 has no Doom 3 expansion content. Their original
+// DOOM 3 implementations are intentionally deleted here.
 
 /*
 ===============
@@ -4088,7 +4048,7 @@ idFile * idFileSystemLocal::MakeTemporaryFile( void ) {
 idFileSystemLocal::FindFile
 ===============
 */
- findFile_t idFileSystemLocal::FindFile( const char *path, bool scheduleAddons ) {
+findFile_t idFileSystemLocal::FindFileAddon( const char *path, bool scheduleAddons ) {
 	pack_t *pak;
 	idFile *f = OpenFileReadFlags( path, FSFLAG_SEARCH_DIRS | FSFLAG_SEARCH_PAKS | FSFLAG_SEARCH_ADDONS, &pak );
 	if ( !f ) {
@@ -4100,7 +4060,7 @@ idFileSystemLocal::FindFile
 	}
 	// marking addons for inclusion on reload - may need to do that even when already in the search path
 	if ( scheduleAddons && pak->addon && addonChecksums.FindIndex( pak->checksum ) < 0 ) {
-		addonChecksums.Append( pak->checksum );			
+		addonChecksums.Append( pak->checksum );
 	}
 	// an addon that's not on search list yet? that will require a restart
 	if ( pak->addon && !pak->addon_search ) {
@@ -4109,6 +4069,20 @@ idFileSystemLocal::FindFile
 	}
 	delete f;
 	return FIND_YES;
+}
+
+/*
+===============
+idFileSystemLocal::FindFile
+( Quake 4 SDK signature - no scheduleAddons argument )
+The DOOM 3 engine relied on scheduleAddons=true at every call site that drives a
+map change (Session / AsyncServer), so the addon found in a pak is flagged for
+inclusion on the next reloadEngine. We keep that behavior here. Scheduling is
+harmless when not needed (it just records a checksum consumed at restart time).
+===============
+*/
+findFile_t idFileSystemLocal::FindFile( const char *path ) {
+	return FindFileAddon( path, true );
 }
 
 /*
@@ -4214,4 +4188,218 @@ void idFileSystemLocal::FindMapScreenshot( const char *path, char *buf, int len 
 			idStr::Copynz( buf, "guis/assets/splash/pdtempa", len );
 		}
 	}
+}
+
+// ============================================================================
+//
+// Quake 4 1.4.2 SDK (v37) additions
+//
+// These methods exist purely to fill the Q4 idFileSystem vtable so the retail
+// gamex86.dll resolves each fileSystem-> call to the right slot. Methods that
+// are exercised during game Init / menu get real implementations; the rest are
+// trivial stubs (not reached on the boot/menu path).
+//
+// ============================================================================
+
+/*
+===============
+idFileSystemLocal::RemoveExplicitFile
+removes a file by full OS path; returns the C remove() status (0 == success)
+===============
+*/
+int idFileSystemLocal::RemoveExplicitFile( const char *OSPath ) {
+	int ret = remove( OSPath );
+	ClearDirCache();
+	return ret;
+}
+
+/*
+===============
+idFileSystemLocal::SetIsFileLoadingAllowed		(REAL - used during Init)
+===============
+*/
+void idFileSystemLocal::SetIsFileLoadingAllowed( bool mode ) {
+	fileLoadingAllowed = mode;
+}
+
+/*
+===============
+idFileSystemLocal::GetIsFileLoadingAllowed		(REAL - used during Init)
+===============
+*/
+bool idFileSystemLocal::GetIsFileLoadingAllowed( void ) const {
+	return fileLoadingAllowed;
+}
+
+/*
+===============
+idFileSystemLocal::SetAssetLogName		(stub)
+===============
+*/
+void idFileSystemLocal::SetAssetLogName( const char *logName ) {
+	assetLogName = logName ? logName : "";
+}
+
+/*
+===============
+idFileSystemLocal::WriteAssetLog		(stub)
+===============
+*/
+void idFileSystemLocal::WriteAssetLog( void ) {
+}
+
+/*
+===============
+idFileSystemLocal::ClearAssetLog		(stub)
+===============
+*/
+void idFileSystemLocal::ClearAssetLog( void ) {
+}
+
+/*
+===============
+idFileSystemLocal::GetAssetLogName		(stub)
+===============
+*/
+const char* idFileSystemLocal::GetAssetLogName( void ) {
+	return assetLogName.c_str();
+}
+
+/*
+===============
+idFileSystemLocal::GetNewFileMemory		(REAL - used during Init/script compile)
+===============
+*/
+idFile * idFileSystemLocal::GetNewFileMemory( void ) {
+	return new idFile_Memory();
+}
+
+/*
+===============
+idFileSystemLocal::GetNewFilePermanent		(REAL)
+===============
+*/
+idFile * idFileSystemLocal::GetNewFilePermanent( void ) {
+	return new idFile_Permanent();
+}
+
+/*
+===============
+idFileSystemLocal::RelativeDownloadPathForChecksum		(stub)
+===============
+*/
+int idFileSystemLocal::RelativeDownloadPathForChecksum( int checksum, char path[ MAX_STRING_CHARS ] ) {
+	if ( path ) {
+		path[0] = '\0';
+	}
+	return 0;
+}
+
+/*
+===============
+idFileSystemLocal::ValidateDownloadPakForRelativePath		(stub)
+===============
+*/
+int idFileSystemLocal::ValidateDownloadPakForRelativePath( const char *relativePath, char path[ MAX_STRING_CHARS ], bool &isGamePakReturn ) {
+	if ( path ) {
+		path[0] = '\0';
+	}
+	isGamePakReturn = false;
+	return 0;
+}
+
+/*
+===============
+idFileSystemLocal::GetMapDeclIndex		(stub)
+===============
+*/
+int idFileSystemLocal::GetMapDeclIndex( const char *mapName ) {
+	return -1;
+}
+
+/*
+===============
+idFileSystemLocal::GetMapDecl		(by name - stub; the int overload above is real)
+===============
+*/
+const idDict * idFileSystemLocal::GetMapDecl( const char *mapName ) {
+	return NULL;
+}
+
+/*
+===============
+idFileSystemLocal::OSpathToImportPath		(stub)
+===============
+*/
+bool idFileSystemLocal::OSpathToImportPath( const char *osPath, idStr &iPath, bool stripTemp ) {
+	iPath = "";
+	return false;
+}
+
+/*
+===============
+idFileSystemLocal::OpenImportFileRead		(stub)
+===============
+*/
+idFile * idFileSystemLocal::OpenImportFileRead( const char *filename ) {
+	return NULL;
+}
+
+/*
+===============
+idFileSystemLocal::WriteDemoHeader		(stub)
+===============
+*/
+void idFileSystemLocal::WriteDemoHeader( idFile *file ) {
+}
+
+/*
+===============
+idFileSystemLocal::ReadDemoHeader		(stub - 1 == 'can continue')
+===============
+*/
+int idFileSystemLocal::ReadDemoHeader( idFile *file ) {
+	return 1;
+}
+
+/*
+===============
+idFileSystemLocal::IsRunningWithRestrictions		(stub)
+===============
+*/
+bool idFileSystemLocal::IsRunningWithRestrictions( void ) {
+	return false;
+}
+
+/*
+===============
+idFileSystemLocal::ReadCodePakLists		(stub)
+===============
+*/
+void idFileSystemLocal::ReadCodePakLists( const idBitMsg &msg ) {
+}
+
+/*
+===============
+idFileSystemLocal::HaveCodePakLists		(stub)
+===============
+*/
+bool idFileSystemLocal::HaveCodePakLists( void ) const {
+	return false;
+}
+
+/*
+===============
+idFileSystemLocal::SelectDefaultLanguage		(stub)
+===============
+*/
+void idFileSystemLocal::SelectDefaultLanguage( void ) {
+}
+
+/*
+===============
+idFileSystemLocal::ClearAddonList		(stub)
+===============
+*/
+void idFileSystemLocal::ClearAddonList( void ) {
 }

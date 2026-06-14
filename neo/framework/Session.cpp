@@ -98,7 +98,7 @@ static void Session_Map_f( const idCmdArgs &args ) {
 	// a typo at the server console won't end the game
 	// handle addon packs through reloadEngine
 	sprintf( string, "maps/%s.map", map.c_str() );
-	ff = fileSystem->FindFile( string, true );
+	ff = fileSystem->FindFile( string );
 	switch ( ff ) {
 	case FIND_NO:
 		common->Printf( "Can't find map %s\n", string.c_str() );
@@ -139,7 +139,7 @@ static void Session_DevMap_f( const idCmdArgs &args ) {
 	// a typo at the server console won't end the game
 	// handle addon packs through reloadEngine
 	sprintf( string, "maps/%s.map", map.c_str() );
-	ff = fileSystem->FindFile( string, true );
+	ff = fileSystem->FindFile( string );
 	switch ( ff ) {
 	case FIND_NO:
 		common->Printf( "Can't find map %s\n", string.c_str() );
@@ -1629,6 +1629,7 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	}
 
 	// load and spawn all other entities ( from a savegame possibly )
+	common->Printf( "[Q4trace] (6/7) Session reached MAP LOAD (ExecuteMapChange) -- engine is past game->Init\n" );
 	if ( loadingSaveGame && savegameFile ) {
 		if ( game->InitFromSaveGame( fullMapName + ".map", rw, sw, savegameFile ) == false ) {
 			// If the loadgame failed, restart the map with the player persistent data

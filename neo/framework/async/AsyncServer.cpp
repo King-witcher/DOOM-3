@@ -263,7 +263,7 @@ void idAsyncServer::ExecuteMapChange( void ) {
 
 	sprintf( mapName, "maps/%s", sessLocal.mapSpawnData.serverInfo.GetString( "si_map" ) );
 	mapName.SetFileExtension( ".map" );
-	ff = fileSystem->FindFile( mapName, !serverReloadingEngine );
+	ff = fileSystem->FindFile( mapName );
 	switch( ff ) {
 	case FIND_NO:
 		common->Printf( "Can't find map %s\n", mapName.c_str() );

@@ -54,6 +54,8 @@ If you have questions concerning this license or the applicable additional terms
 
 static const ID_TIME_T		FILE_NOT_FOUND_TIMESTAMP	= 0xFFFFFFFF;
 static const int		MAX_PURE_PAKS				= 128;
+// Quake 4 1.4.2 SDK: master server can keep server updated with a list of allowed paks per OS
+static const int		MAX_GAMEPAK_PER_OS			= 10;
 static const int		MAX_OSPATH					= 256;
 
 // modes for OpenFileByMode. used as bit mask internally
@@ -118,6 +120,10 @@ typedef struct backgroundDownload_s {
 	volatile bool		completed;
 } backgroundDownload_t;
 
+// forward declaration (provided via idlib/Lib.h, but declared here in case
+// FileSystem.h is included standalone - needed by ReadCodePakLists)
+class idBitMsg;
+
 // file list for directory listings
 class idFileList {
 	friend class idFileSystemLocal;
@@ -145,6 +151,34 @@ private:
 	idStrList				descriptions;
 };
 
+// ============================================================================
+//
+// idFileSystem - PORTED to the Quake 4 1.4.2 retail SDK (v37) vtable layout.
+//
+// The virtual method order, count, and signatures below mirror the Q4 1.4.2 SDK
+// (quake4-sdk/source/framework/FileSystem.h, class idFileSystem) EXACTLY, so the
+// retail gamex86.dll resolves every fileSystem-> call to the correct slot.
+//
+// Retail build defines honored when deciding which methods occupy a slot:
+//   RV_UNIFIED_ALLOCATOR=ON, _RV_MEM_SYS_SUPPORT=OFF, RV_SINGLE_DECL_FILE=ON,
+//   RV_BINARYDECLS=OFF, Q4SDK=ON, Q4SDK_MD5R=ON, _USE_OPENAL=ON, _XENON=OFF.
+// The only conditional inside the SDK class is the _XENON block
+// (AddDownloadedPak/RemoveDownloadedPak/AddExplicitPak/RemoveExplicitPak/
+// IsPakLoaded); _XENON=OFF so those 5 methods are NOT present.
+//
+// Total: 71 entries (slot 0 = destructor + 70 named virtuals).
+//
+// NOTE on signature fidelity vs. surviving DOOM 3 engine callers:
+//  - ReadFile keeps ID_TIME_T* timestamp. With _USE_32BIT_TIME_T (set in
+//    _Common.props) ID_TIME_T == 32-bit time_t == same size/ABI as the SDK's
+//    'unsigned *', so the slot is binary-compatible.
+//  - SetPureServerChecksums / GetPureServerChecksums keep the DOOM 3 scalar
+//    gamePakChecksum signature (the SDK uses int[MAX_GAMEPAK_PER_OS] + an extra
+//    out param). These are server pure-negotiation methods, never invoked by the
+//    Q4 DLL on the boot/menu path, and 6 internal async network callers rely on
+//    the scalar form. The vtable SLOT POSITION is unchanged, which is what the
+//    ABI requires here.
+// ============================================================================
 class idFileSystem {
 public:
 	virtual					~idFileSystem() {}
@@ -159,27 +193,18 @@ public:
 							// Returns true if we are doing an fs_copyfiles.
 	virtual bool			PerformingCopyFiles( void ) const = 0;
 							// Returns a list of mods found along with descriptions
-							// 'mods' contains the directory names to be passed to fs_game
-							// 'descriptions' contains a free form string to be used in the UI
 	virtual idModList *		ListMods( void ) = 0;
 							// Frees the given mod list
 	virtual void			FreeModList( idModList *modList ) = 0;
 							// Lists files with the given extension in the given directory.
-							// Directory should not have either a leading or trailing '/'
-							// The returned files will not include any directories or '/' unless fullRelativePath is set.
-							// The extension must include a leading dot and may not contain wildcards.
-							// If extension is "/", only subdirectories will be returned.
 	virtual idFileList *	ListFiles( const char *relativePath, const char *extension, bool sort = false, bool fullRelativePath = false, const char* gamedir = NULL ) = 0;
 							// Lists files in the given directory and all subdirectories with the given extension.
-							// Directory should not have either a leading or trailing '/'
-							// The returned files include a full relative path.
-							// The extension must include a leading dot and may not contain wildcards.
 	virtual idFileList *	ListFilesTree( const char *relativePath, const char *extension, bool sort = false, const char* gamedir = NULL ) = 0;
 							// Frees the given file list.
 	virtual void			FreeFileList( idFileList *fileList ) = 0;
-							// Converts a relative path to a full OS path.
-	virtual const char *	OSPathToRelativePath( const char *OSPath ) = 0;
 							// Converts a full OS path to a relative path.
+	virtual const char *	OSPathToRelativePath( const char *OSPath ) = 0;
+							// Converts a relative path to a full OS path.
 	virtual const char *	RelativePathToOSPath( const char *relativePath, const char *basePath = "fs_devpath" ) = 0;
 							// Builds a full OS path from the given components.
 	virtual const char *	BuildOSPath( const char *base, const char *game, const char *relativePath ) = 0;
@@ -188,47 +213,48 @@ public:
 							// Returns true if a file is in a pak file.
 	virtual bool			FileIsInPAK( const char *relativePath ) = 0;
 							// Returns a space separated string containing the checksums of all referenced pak files.
-							// will call SetPureServerChecksums internally to restrict itself
 	virtual void			UpdatePureServerChecksums( void ) = 0;
 							// setup the mapping of OS -> game pak checksum
 	virtual bool			UpdateGamePakChecksums( void ) = 0;
-							// 0-terminated list of pak checksums
-							// if pureChecksums[ 0 ] == 0, all data sources will be allowed
-							// otherwise, only pak files that match one of the checksums will be checked for files
-							// with the sole exception of .cfg files.
-							// the function tries to configure pure mode from the paks already referenced and this new list
-							// it returns wether the switch was successfull, and sets the missing checksums
-							// the process is verbosive when fs_debug 1
+							// configure pure mode (server pure-negotiation; DOOM 3 scalar gamePakChecksum signature kept)
 	virtual fsPureReply_t	SetPureServerChecksums( const int pureChecksums[ MAX_PURE_PAKS ], int gamePakChecksum, int missingChecksums[ MAX_PURE_PAKS ], int *missingGamePakChecksum ) = 0;
 							// fills a 0-terminated list of pak checksums for a client
-							// if OS is -1, give the current game pak checksum. if >= 0, lookup the game pak table (server only)
 	virtual void			GetPureServerChecksums( int checksums[ MAX_PURE_PAKS ], int OS, int *gamePakChecksum ) = 0;
 							// before doing a restart, force the pure list and the search order
-							// if the given checksum list can't be completely processed and set, will error out
 	virtual void			SetRestartChecksums( const int pureChecksums[ MAX_PURE_PAKS ], int gamePakChecksum ) = 0;
 							// equivalent to calling SetPureServerChecksums with an empty list
 	virtual	void			ClearPureChecksums( void ) = 0;
 							// get a mask of supported OSes. if not pure, returns -1
-	virtual int				GetOSMask( void ) = 0;
-							// Reads a complete file.
-							// Returns the length of the file, or -1 on failure.
-							// A null buffer will just return the file length without loading.
-							// A null timestamp will be ignored.
-							// As a quick check for existance. -1 length == not present.
-							// A 0 byte will always be appended at the end, so string ops are safe.
-							// The buffer should be considered read-only, because it may be cached for other uses.
+	virtual unsigned int	GetOSMask( void ) = 0;
+							// Reads a complete file. Returns the length, or -1 on failure.
 	virtual int				ReadFile( const char *relativePath, void **buffer, ID_TIME_T *timestamp = NULL ) = 0;
 							// Frees the memory allocated by ReadFile.
 	virtual void			FreeFile( void *buffer ) = 0;
 							// Writes a complete file, will create any needed subdirectories.
-							// Returns the length of the file, or -1 on failure.
 	virtual int				WriteFile( const char *relativePath, const void *buffer, int size, const char *basePath = "fs_savepath" ) = 0;
 							// Removes the given file.
-	virtual void			RemoveFile( const char *relativePath ) = 0;
+	virtual void			RemoveFile( const char *relativePath, const char *basePath = "fs_savepath" ) = 0;
+							// Removes the given file and returns the filesystem status of the removal
+	virtual int				RemoveExplicitFile( const char *OSPath ) = 0;
+							// is file loading allowed?
+	virtual void			SetIsFileLoadingAllowed( bool mode ) = 0;
+							// returns file loading status
+	virtual bool			GetIsFileLoadingAllowed( void ) const = 0;
+							// set the current asset log name.
+	virtual void			SetAssetLogName( const char *logName ) = 0;
+							// write out a list of all files loaded.
+	virtual void			WriteAssetLog( void ) = 0;
+							// clear list of all files loaded.
+	virtual void			ClearAssetLog( void ) = 0;
+							// Accessor for asset log name (with filter)
+	virtual const char*		GetAssetLogName( void ) = 0;
+							// new file allocators for tools
+	virtual idFile *		GetNewFileMemory( void ) = 0;
+	virtual idFile *		GetNewFilePermanent( void ) = 0;
 							// Opens a file for reading.
 	virtual idFile *		OpenFileRead( const char *relativePath, bool allowCopyFiles = true, const char* gamedir = NULL ) = 0;
 							// Opens a file for writing, will create any needed subdirectories.
-	virtual idFile *		OpenFileWrite( const char *relativePath, const char *basePath = "fs_savepath" ) = 0;
+	virtual idFile *		OpenFileWrite( const char *relativePath, const char *basePath = "fs_savepath", bool ASCII = false ) = 0;
 							// Opens a file for writing at the end.
 	virtual idFile *		OpenFileAppend( const char *filename, bool sync = false, const char *basePath = "fs_basepath" ) = 0;
 							// Opens a file for reading, writing, or appending depending on the value of mode.
@@ -250,20 +276,13 @@ public:
 							// look for a dynamic module
 	virtual void			FindDLL( const char *basename, char dllPath[ MAX_OSPATH ], bool updateChecksum ) = 0;
 							// case sensitive filesystems use an internal directory cache
-							// the cache is cleared when calling OpenFileWrite and RemoveFile
-							// in some cases you may need to use this directly
 	virtual void			ClearDirCache( void ) = 0;
-
-							// is D3XP installed? even if not running it atm
-	virtual bool			HasD3XP( void ) = 0;
-							// are we using D3XP content ( through a real d3xp run or through a double mod )
-	virtual bool			RunningD3XP( void ) = 0;
-
-							// don't use for large copies - allocates a single memory block for the copy
-	virtual void			CopyFile( const char *fromOSPath, const char *toOSPath ) = 0;
-
 							// lookup a relative path, return the size or 0 if not found
+	virtual int				RelativeDownloadPathForChecksum( int checksum, char path[ MAX_STRING_CHARS ] ) = 0;
+							// verify the file can be downloaded, lookup a relative path, return the size or 0 if not found
 	virtual int				ValidateDownloadPakForChecksum( int checksum, char path[ MAX_STRING_CHARS ], bool isGamePak ) = 0;
+							// verify the file can be downloaded, lookup an absolute (OS) path, return the size or 0 if not found
+	virtual int				ValidateDownloadPakForRelativePath( const char *relativePath, char path[ MAX_STRING_CHARS ], bool &isGamePakReturn ) = 0;
 
 	virtual idFile *		MakeTemporaryFile( void ) = 0;
 
@@ -271,17 +290,48 @@ public:
 	virtual int				AddZipFile( const char *path ) = 0;
 
 							// look for a file in the loaded paks or the addon paks
-							// if the file is found in addons, FS's internal structures are ready for a reloadEngine
-	virtual findFile_t		FindFile( const char *path, bool scheduleAddons = false ) = 0;
+	virtual findFile_t		FindFile( const char *path ) = 0;
 
 							// get map/addon decls and take into account addon paks that are not on the search list
-							// the decl 'name' is in the "path" entry of the dict
 	virtual int				GetNumMaps() = 0;
+	virtual int				GetMapDeclIndex( const char *mapName ) = 0;
 	virtual const idDict *	GetMapDecl( int i ) = 0;
+	virtual const idDict *	GetMapDecl( const char *mapName ) = 0;
 	virtual void			FindMapScreenshot( const char *path, char *buf, int len ) = 0;
 
-							// ignore case and seperator char distinctions
-	virtual bool			FilenameCompare( const char *s1, const char *s2 ) const = 0;
+							// Converts a full OS path to an import path.
+	virtual bool			OSpathToImportPath( const char *osPath, idStr &iPath, bool stripTemp = false ) = 0;
+							// Opens a file for reading from the fs_importpath directory
+	virtual idFile *		OpenImportFileRead( const char *filename ) = 0;
+							// Copy a file
+	virtual void			CopyOSFile( const char *fromOSPath, const char *toOSPath ) = 0;
+	virtual void			CopyOSFile( idFile *src, const char *toOSPath ) = 0;
+
+							// demo functions - only for use by the core
+	virtual void			WriteDemoHeader( idFile *file ) = 0;
+	virtual int				ReadDemoHeader( idFile *file ) = 0;
+
+							// indicates if the filesystem is currently running with pak files restrictions or addons
+	virtual bool			IsRunningWithRestrictions( void ) = 0;
+
+							// new in 1.4
+	virtual void			ReadCodePakLists( const idBitMsg &msg ) = 0;
+	virtual bool			HaveCodePakLists( void ) const = 0;
+
+							// pick best language - used by the core to pick a good default language based on present zpaks
+	virtual void			SelectDefaultLanguage( void ) = 0;
+
+	virtual void			ClearAddonList( void ) = 0;
+
+	// ------------------------------------------------------------------------
+	// DOOM 3 legacy helpers that are NOT part of the Quake 4 vtable.
+	// Declared NON-virtual on the base so they add no vtable slot, yet remain
+	// callable through the engine's idFileSystem* (used by async networking and
+	// the session menu). Quake 4 has no Doom 3 expansion content, so both
+	// return false. (No corresponding override exists in idFileSystemLocal.)
+	// ------------------------------------------------------------------------
+	bool					HasD3XP( void ) { return false; }
+	bool					RunningD3XP( void ) { return false; }
 };
 
 extern idFileSystem *		fileSystem;

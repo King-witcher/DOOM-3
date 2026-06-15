@@ -106,40 +106,44 @@ const int GLYPH_CHARSTART		= 32;
 const int GLYPH_CHAREND			= 127;
 const int GLYPHS_PER_FONT		= GLYPH_END - GLYPH_START + 1;
 
-typedef struct {
-	int					height;			// number of scan lines
-	int					top;			// top of glyph in buffer
-	int					bottom;			// bottom of glyph in buffer
-	int					pitch;			// width for copying
-	int					xSkip;			// x adjustment
-	int					imageWidth;		// width of actual image
-	int					imageHeight;	// height of actual image
-	float				s;				// x offset in image where glyph starts
-	float				t;				// y offset in image where glyph starts
-	float				s2;
-	float				t2;
-	const idMaterial *	glyph;			// shader with the glyph
-	char				shaderName[32];
+// RAVEN: Quake 4 1.4.2 font layout. A .fontdat file is a raw dump of one
+// fontInfo_t (256 glyphs of 9 floats + pointSize/fontHeight/ascender/descender
+// + a 4-byte material-pointer placeholder = 9236 bytes for a 12-point font).
+// Unlike DOOM 3 (a material per glyph), Quake 4 uses ONE material per font and
+// each glyph is a sub-rect (s1,t1)-(s2,t2) of that texture.
+typedef struct glyphInfo_s {
+	float				width;			// number of pixels wide
+	float				height;			// number of scan lines
+	float				horiAdvance;	// number of pixels to advance to the next char
+	float				horiBearingX;	// x offset into space to render glyph
+	float				horiBearingY;	// y offset (baseline to top of glyph)
+	float				s1;				// x start tex coord
+	float				t1;				// y start tex coord
+	float				s2;				// x end tex coord
+	float				t2;				// y end tex coord
 } glyphInfo_t;
 
-typedef struct {
+typedef struct fontInfo_s {
 	glyphInfo_t			glyphs [GLYPHS_PER_FONT];
-	float				glyphScale;
-	char				name[64];
+	float				pointSize;
+	float				fontHeight;		// max height of font
+	float				ascender;
+	float				descender;
+	idMaterial *		material;		// single texture for the whole font
 } fontInfo_t;
 
 typedef struct {
 	fontInfo_t			fontInfoSmall;
 	fontInfo_t			fontInfoMedium;
 	fontInfo_t			fontInfoLarge;
-	int					maxHeight;
-	int					maxWidth;
-	int					maxHeightSmall;
-	int					maxWidthSmall;
-	int					maxHeightMedium;
-	int					maxWidthMedium;
-	int					maxHeightLarge;
-	int					maxWidthLarge;
+	float				maxHeight;
+	float				maxWidth;
+	float				maxHeightSmall;
+	float				maxWidthSmall;
+	float				maxHeightMedium;
+	float				maxWidthMedium;
+	float				maxHeightLarge;
+	float				maxWidthLarge;
 	char				name[64];
 } fontInfoEx_t;
 

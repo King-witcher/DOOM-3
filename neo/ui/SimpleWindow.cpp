@@ -118,7 +118,7 @@ idSimpleWindow::idSimpleWindow(idWindow *win) {
 }
 
 idSimpleWindow::~idSimpleWindow() {
-
+	definedVars.DeleteContents( true );
 }
 
 void idSimpleWindow::StateChanged( bool redraw ) {
@@ -326,6 +326,45 @@ idWinVar *idSimpleWindow::GetWinVarByName(const char *_name) {
 	if (idStr::Icmp(_name, "text") == 0) {
 		retVar = &text;
 	}
+
+	// RAVEN: vec4/rect component access, e.g. "matcolor_w" -> the W of matColor.
+	// Simple windows are the bulk of the Quake 4 menu; without this their
+	// fade-ins / matcolor_w sets silently no-op and the menu stays black.
+	if ( retVar == NULL ) {
+		static bool preventRecursion = false;
+		int nlen = idStr::Length( _name );
+		if ( !preventRecursion && nlen > 2 && _name[nlen - 2] == '_' ) {
+			char suffix = (char)tolower( _name[nlen - 1] );
+			idStr baseName = _name;
+			baseName.CapLength( nlen - 2 );
+			preventRecursion = true;
+			idWinVar *baseVar = GetWinVarByName( baseName.c_str() );
+			preventRecursion = false;
+			int index = -1;
+			if ( dynamic_cast<idWinVec4 *>( baseVar ) ) {
+				switch ( suffix ) {
+					case 'x': index = 0; break;
+					case 'y': index = 1; break;
+					case 'z': index = 2; break;
+					case 'w': index = 3; break;
+				}
+			} else if ( dynamic_cast<idWinRectangle *>( baseVar ) ) {
+				switch ( suffix ) {
+					case 'x': index = 0; break;
+					case 'y': index = 1; break;
+					case 'w': index = 2; break;
+					case 'h': index = 3; break;
+				}
+			}
+			if ( index != -1 ) {
+				idWinFloatMember *member = new idWinFloatMember( baseVar, index );
+				member->Init( _name, NULL );
+				definedVars.Append( member );
+				retVar = member;
+			}
+		}
+	}
+
 	return retVar;
 }
 

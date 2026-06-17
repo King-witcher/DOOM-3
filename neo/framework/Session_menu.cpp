@@ -68,7 +68,11 @@ void idSessionLocal::StartMenu( bool playIntro ) {
 	soundSystem->SetPlayingSoundWorld( menuSoundWorld );
 
 	SetGUI( guiMainMenu, NULL );
-	guiMainMenu->HandleNamedEvent( playIntro ? "playIntro" : "noIntro" );
+	// RAVEN/Q4: "playIntro" plays a sequence of logo videos (id/Raven/Bethesda)
+	// we can't decode yet -- it would leave the menu sitting on a black
+	// "videoBlack" overlay. Force-skip it so the main menu is shown. (Restore the
+	// playIntro flag once RoQ/Bink intro playback is wired up.)
+	guiMainMenu->HandleNamedEvent( "noIntro" );
 
 
 	if(fileSystem->HasD3XP()) {

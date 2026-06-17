@@ -96,6 +96,9 @@ protected:
 	idWindow *		mParent;
 
 	idWinBool	hideCursor;
+
+	// RAVEN: synthesized vec4/rect component winvars (e.g. "matcolor_w"), owned here
+	idList<idWinVar*>	definedVars;
 };
 
 #endif /* !__SIMPLEWIN_H__ */

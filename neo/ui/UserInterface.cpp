@@ -299,10 +299,13 @@ bool idUserInterfaceLocal::InitFromFile( const char *qpath, bool rebuild, bool c
 		while( src.ReadToken( &token ) ) {
 			if ( idStr::Icmp( token, "windowDef" ) == 0 ) {
 				desktop->SetDC( &uiManagerLocal.dc );
-				if ( desktop->Parse( &src, rebuild ) ) {
-					desktop->SetFlag( WIN_DESKTOP );
-					desktop->FixupParms();
-				}
+				desktop->Parse( &src, rebuild );
+				// The root window IS the desktop whether or not every nested
+				// element parsed cleanly. Quake 4 GUIs trip the DOOM 3 parser on
+				// a few constructs, but the menu must still receive WIN_DESKTOP
+				// or its per-frame timeline/animation never runs (black screen).
+				desktop->SetFlag( WIN_DESKTOP );
+				desktop->FixupParms();
 				continue;
 			}
 		}

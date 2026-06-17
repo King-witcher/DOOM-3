@@ -1054,7 +1054,7 @@ idWindow::Time
 ================
 */
 void idWindow::Time() {
-	
+
 	if ( noTime ) {
 		return;
 	}
@@ -2378,9 +2378,8 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 			}
 
 			rvNamedEvent* ev = new rvNamedEvent ( token );
-			
 			src->SetMarker ( );
-			
+
 			if ( !ParseScript ( src, *ev->mEvent ) ) {
 				ret = false;
 				break;

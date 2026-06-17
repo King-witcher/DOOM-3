@@ -328,7 +328,7 @@ bool idRenderSystemLocal::RegisterFont( const char *fontName, fontInfoEx_t &font
 		float glyphScale = 1.0f; 		// change the scale to be relative to 1 based on 72 dpi ( so dpi of 144 means a scale of .5 )
 		glyphScale *= 48.0f / pointSize;
 
-		idStr::snPrintf( name, sizeof(name), "%s/fontImage_%i.dat", fontName, pointSize );
+		idStr::snPrintf( name, sizeof(name), "%s_%i.fontdat", fontName, pointSize );
 
 		fontInfo_t *outFont;
 		if ( fontCount == 0 ) {
@@ -341,47 +341,32 @@ bool idRenderSystemLocal::RegisterFont( const char *fontName, fontInfoEx_t &font
 			outFont = &font.fontInfoLarge;
 		}
 
-		idStr::Copynz( outFont->name, name, sizeof( outFont->name ) );
-
 		len = fileSystem->ReadFile( name, NULL, &ftime );
 		if ( len != sizeof( fontInfo_t ) ) {
 			common->Warning( "RegisterFont: couldn't find font: '%s'", name );
 			return false;
 		}
 
+		// a Quake 4 .fontdat is a raw dump of one fontInfo_t (glyph metrics +
+		// pointSize/fontHeight/ascender/descender + a null material pointer)
 		fileSystem->ReadFile( name, &faceData, &ftime );
-		fdOffset = 0;
-		fdFile = reinterpret_cast<unsigned char*>(faceData);
-		for( i = 0; i < GLYPHS_PER_FONT; i++ ) {
-			outFont->glyphs[i].height		= readInt();
-			outFont->glyphs[i].top			= readInt();
-			outFont->glyphs[i].bottom		= readInt();
-			outFont->glyphs[i].pitch		= readInt();
-			outFont->glyphs[i].xSkip		= readInt();
-			outFont->glyphs[i].imageWidth	= readInt();
-			outFont->glyphs[i].imageHeight	= readInt();
-			outFont->glyphs[i].s			= readFloat();
-			outFont->glyphs[i].t			= readFloat();
-			outFont->glyphs[i].s2			= readFloat();
-			outFont->glyphs[i].t2			= readFloat();
-			int junk /* font.glyphs[i].glyph */		= readInt();
-			//FIXME: the +6, -6 skips the embedded fonts/ 
-			memcpy( outFont->glyphs[i].shaderName, &fdFile[fdOffset + 6], 32 - 6 );
-			fdOffset += 32;
-		}
-		outFont->glyphScale = readFloat();
+		memcpy( outFont, faceData, sizeof( fontInfo_t ) );
+		fileSystem->FreeFile( faceData );
 
-		int mw = 0;
-		int mh = 0;
-		for (i = GLYPH_START; i < GLYPH_END; i++) {
-			idStr::snPrintf(name, sizeof(name), "%s/%s", fontName, outFont->glyphs[i].shaderName);
-			outFont->glyphs[i].glyph = declManager->FindMaterial(name);
-			outFont->glyphs[i].glyph->SetSort( SS_GUI );
-			if (mh < outFont->glyphs[i].height) {
+		// one material holds the whole glyph atlas for this point size:
+		// fonts/<lang>/<name>_<size>.tga|dds
+		idStr::snPrintf( name, sizeof( name ), "%s_%i", fontName, pointSize );
+		outFont->material = const_cast<idMaterial *>( declManager->FindMaterial( name ) );
+		outFont->material->SetSort( SS_GUI );
+
+		float mw = 0.0f;
+		float mh = 0.0f;
+		for ( i = GLYPH_CHARSTART; i < GLYPH_CHAREND; i++ ) {
+			if ( mh < outFont->glyphs[i].height ) {
 				mh = outFont->glyphs[i].height;
 			}
-			if (mw < outFont->glyphs[i].xSkip) {
-				mw = outFont->glyphs[i].xSkip;
+			if ( mw < outFont->glyphs[i].horiAdvance ) {
+				mw = outFont->glyphs[i].horiAdvance;
 			}
 		}
 		if (fontCount == 0) {
@@ -394,12 +379,9 @@ bool idRenderSystemLocal::RegisterFont( const char *fontName, fontInfoEx_t &font
 			font.maxWidthLarge = mw;
 			font.maxHeightLarge = mh;
 		}
-		fileSystem->FreeFile( faceData );
 	}
 
-	//memcpy( &registeredFont[registeredFontCount++], &font, sizeof( fontInfoEx_t ) );
-
-	return true ;
+	return true;
 
 #ifndef BUILD_FREETYPE
     common->Warning( "RegisterFont: couldn't load FreeType code %s", name );

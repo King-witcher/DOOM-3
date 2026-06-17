@@ -48,6 +48,14 @@ idCVar gui_mediumFontLimit( "gui_mediumFontLimit", "0.60", CVAR_GUI | CVAR_ARCHI
 
 idList<fontInfoEx_t> idDeviceContext::fonts;
 
+// Quake 4 fontInfo_t has no glyphScale field (DOOM 3 did); the glyph metrics are
+// stored in pixels for the font's point size and the UI scaling is authored
+// relative to a 48-point reference, so derive the scale the way RegisterFont
+// used to bake it.
+static ID_INLINE float DC_GlyphScale( const fontInfo_t *f ) {
+	return ( f && f->pointSize > 0.0f ) ? ( 48.0f / f->pointSize ) : 1.0f;
+}
+
 int idDeviceContext::FindFont( const char *name ) {
 	int c = fonts.Num();
 	for (int i = 0; i < c; i++) {
@@ -684,7 +692,7 @@ int idDeviceContext::DrawText(float x, float y, float scale, idVec4 color, const
 	const glyphInfo_t *glyph;
 	float		useScale;
 	SetFontByScale(scale);
-	useScale = scale * useFont->glyphScale;
+	useScale = scale * DC_GlyphScale(useFont);
 	count = 0;
 	if ( text && color.w != 0.0f ) {
 		const unsigned char	*s = (const unsigned char*)text;
@@ -716,7 +724,7 @@ int idDeviceContext::DrawText(float x, float y, float scale, idVec4 color, const
 					newColor[3] = color[3];
 				}
 				if (cursor == count || cursor == count+1) {
-					float partialSkip = ((glyph->xSkip * useScale) + adjust) / 5.0f;
+					float partialSkip = ((glyph->horiAdvance * useScale) + adjust) / 5.0f;
 					if ( cursor == count ) {
 						partialSkip *= 2.0f;
 					} else {
@@ -729,13 +737,13 @@ int idDeviceContext::DrawText(float x, float y, float scale, idVec4 color, const
 				count += 2;
 				continue;
 			} else {
-				float yadj = useScale * glyph->top;
-				PaintChar(x,y - yadj,glyph->imageWidth,glyph->imageHeight,useScale,glyph->s,glyph->t,glyph->s2,glyph->t2,glyph->glyph);
+				float yadj = useScale * glyph->horiBearingY;
+				PaintChar(x,y - yadj,glyph->width,glyph->height,useScale,glyph->s1,glyph->t1,glyph->s2,glyph->t2,useFont->material);
 
 				if (cursor == count) {
 					DrawEditCursor(x, y, scale);
 				}
-				x += (glyph->xSkip * useScale) + adjust;
+				x += (glyph->horiAdvance * useScale) + adjust;
 				s++;
 				count++;
 			}
@@ -762,9 +770,9 @@ int idDeviceContext::CharWidth( const char c, float scale ) {
 	float		useScale;
 	SetFontByScale(scale);
 	fontInfo_t	*font = useFont;
-	useScale = scale * font->glyphScale;
+	useScale = scale * DC_GlyphScale(font);
 	glyph = &font->glyphs[(const unsigned char)c];
-	return idMath::FtoiFast( glyph->xSkip * useScale );
+	return idMath::FtoiFast( glyph->horiAdvance * useScale );
 }
 
 int idDeviceContext::TextWidth( const char *text, float scale, int limit ) {
@@ -783,7 +791,7 @@ int idDeviceContext::TextWidth( const char *text, float scale, int limit ) {
 			if ( idStr::IsColor( text + i ) ) {
 				i++;
 			} else {
-				width += glyphs[((const unsigned char *)text)[i]].xSkip;
+				width += glyphs[((const unsigned char *)text)[i]].horiAdvance;
 			}
 		}
 	} else {
@@ -791,11 +799,11 @@ int idDeviceContext::TextWidth( const char *text, float scale, int limit ) {
 			if ( idStr::IsColor( text + i ) ) {
 				i++;
 			} else {
-				width += glyphs[((const unsigned char *)text)[i]].xSkip;
+				width += glyphs[((const unsigned char *)text)[i]].horiAdvance;
 			}
 		}
 	}
-	return idMath::FtoiFast( scale * useFont->glyphScale * width );
+	return idMath::FtoiFast( scale * DC_GlyphScale(useFont) * width );
 }
 
 int idDeviceContext::TextHeight(const char *text, float scale, int limit) {
@@ -807,7 +815,7 @@ int idDeviceContext::TextHeight(const char *text, float scale, int limit) {
 	SetFontByScale(scale);
 	fontInfo_t	*font = useFont;
 
-	useScale = scale * font->glyphScale;
+	useScale = scale * DC_GlyphScale(font);
 	max = 0;
 	if (text) {
 		len = strlen(text);
@@ -838,13 +846,13 @@ int idDeviceContext::TextHeight(const char *text, float scale, int limit) {
 
 int idDeviceContext::MaxCharWidth(float scale) {
 	SetFontByScale(scale);
-	float useScale = scale * useFont->glyphScale;
+	float useScale = scale * DC_GlyphScale(useFont);
 	return idMath::FtoiFast( activeFont->maxWidth * useScale );
 }
 
 int idDeviceContext::MaxCharHeight(float scale) {
 	SetFontByScale(scale);
-	float useScale = scale * useFont->glyphScale;
+	float useScale = scale * DC_GlyphScale(useFont);
 	return idMath::FtoiFast( activeFont->maxHeight * useScale );
 }
 
@@ -931,10 +939,10 @@ void idDeviceContext::DrawEditCursor( float x, float y, float scale ) {
 		return;
 	}
 	SetFontByScale(scale);
-	float useScale = scale * useFont->glyphScale;
+	float useScale = scale * DC_GlyphScale(useFont);
 	const glyphInfo_t *glyph2 = &useFont->glyphs[(overStrikeMode) ? '_' : '|'];
-	float	yadj = useScale * glyph2->top;
- 	PaintChar(x, y - yadj,glyph2->imageWidth,glyph2->imageHeight,useScale,glyph2->s,glyph2->t,glyph2->s2,glyph2->t2,glyph2->glyph);
+	float	yadj = useScale * glyph2->horiBearingY;
+ 	PaintChar(x, y - yadj,glyph2->width,glyph2->height,useScale,glyph2->s1,glyph2->t1,glyph2->s2,glyph2->t2,useFont->material);
 }
 
 int idDeviceContext::DrawText( const char *text, float textScale, int textAlign, idVec4 color, idRectangle rectDraw, bool wrap, int cursor, bool calcOnly, idList<int> *breaks, int limit ) {
@@ -1074,7 +1082,7 @@ int idDeviceContext::DrawText( const char *text, float textScale, int textAlign,
 		buff[len] = '\0';
 		// update the width
 		if ( *( buff + len - 1 ) != C_COLOR_ESCAPE && (len <= 1 || *( buff + len - 2 ) != C_COLOR_ESCAPE)) {
-			textWidth += textScale * useFont->glyphScale * useFont->glyphs[ (const unsigned char)*( buff + len - 1 ) ].xSkip;
+			textWidth += textScale * DC_GlyphScale(useFont) * useFont->glyphs[ (const unsigned char)*( buff + len - 1 ) ].horiAdvance;
 		}
 	}
 

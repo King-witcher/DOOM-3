@@ -2151,6 +2151,10 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 
 	bool ret = true;
 
+	// RAVEN/Quake4: "onTime +N" schedules an event N ms after the previous one;
+	// track the running base so the relative form resolves to an absolute time.
+	int onTimeBase = 0;
+
 	// attach a window wrapper to the window if the gui editor is running
 #ifdef ID_ALLOW_TOOLS
 	if ( com_editors & EDITOR_GUI ) {
@@ -2362,8 +2366,19 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 				src->Error( "Unexpected end of file" );
 				return false;
 			}
-			ev->time = atoi(token.c_str());
-			
+			// RAVEN/Quake4 relative time: "onTime +N" (the lexer yields "+" then
+			// "N", or "+N" as one token) means N ms after the previous onTime.
+			if ( token[0] == '+' ) {
+				onTimeBase += atoi( token.c_str() + 1 );
+				if ( token == "+" && src->ReadToken( &token ) ) {
+					onTimeBase += atoi( token.c_str() );
+				}
+				ev->time = onTimeBase;
+			} else {
+				onTimeBase = atoi( token.c_str() );
+				ev->time = onTimeBase;
+			}
+
 			// reset the mark since we dont want it to include the time
 			src->SetMarker ( );
 

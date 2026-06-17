@@ -367,6 +367,16 @@ void idChoiceWindow::Draw(int time, float x, float y) {
 	UpdateChoicesAndVals();
 	UpdateChoice();
 
+	// Guard against an empty / mismatched choice list (Quake 4 choice windows
+	// can fail to populate when their localized choices don't resolve) so the
+	// indexed access below can't walk off the end of the list.
+	if ( choices.Num() == 0 ) {
+		return;
+	}
+	if ( currentChoice < 0 || currentChoice >= choices.Num() ) {
+		currentChoice = 0;
+	}
+
 	// FIXME: It'd be really cool if textAlign worked, but a lot of the guis have it set wrong because it used to not work
 	textAlign = 0;
 

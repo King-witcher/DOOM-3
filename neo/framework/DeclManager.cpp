@@ -163,6 +163,17 @@ private:
 	idDeclLocal *				nextInFile;				// next decl in the decl file
 };
 
+// RAVEN: Quake 4 material guide (template) support. A .guide file defines
+// "guide <name>( P1, P2, ... ) { body }" templates; a .mtr can then instantiate
+// one with "guide <declName> <templateName> ( arg1, arg2, ... )", which expands
+// to "<declName> { body }" with each parameter name replaced by its argument.
+struct rvGuideTemplate {
+	idStr			name;
+	idStrList		parms;
+	idStr			body;		// includes the surrounding { }
+	bool			inlineGuide;
+};
+
 class idDeclFile {
 public:
 								idDeclFile();
@@ -170,6 +181,7 @@ public:
 
 	void						Reload( bool force );
 	int							LoadAndParse();
+	idStr						PreprocessGuides( const char *text, int textLength );
 
 public:
 	idStr						fileName;
@@ -226,8 +238,8 @@ public:
 
 // RAVEN BEGIN
 // jscott: precache any guide (template) files
-	virtual void					ParseGuides( void ) {}
-	virtual	void					ShutdownGuides( void ) {}
+	virtual void					ParseGuides( void );
+	virtual	void					ShutdownGuides( void ) { guides.Clear(); }
 	virtual bool					EvaluateGuide( idStr &name, idLexer *src, idStr &definition ) { return false; }
 	virtual bool					EvaluateInlineGuide( idStr &name, idStr &definition ) { return false; }
 // RAVEN END
@@ -280,8 +292,12 @@ public:
 	idDeclType *				GetDeclType( int type ) const { return declTypes[type]; }
 	const idDeclFile *			GetImplicitDeclFile( void ) const { return &implicitDecls; }
 
+	// RAVEN: look up a parsed guide template by name (used by guide expansion)
+	rvGuideTemplate *			FindGuide( const char *name );
+
 private:
 	idList<idDeclType *>		declTypes;
+	idList<rvGuideTemplate>		guides;			// RAVEN: parsed .guide templates
 	idList<idDeclFolder *>		declFolders;
 
 	idList<idDeclFile *>		loadedFiles;
@@ -651,6 +667,88 @@ void idDeclFile::Reload( bool force ) {
 
 /*
 ================
+idDeclFile::PreprocessGuides
+
+RAVEN: expand Quake 4 material guide directives. Each
+  guide <declName> <templateName> ( arg1, arg2, ... )
+becomes "<declName> <templateBody>" with the template's parameter names
+replaced by the supplied arguments. Embedded inlineGuide *definitions* are
+dropped (ParseGuides() already collected them). Returns the text unchanged
+when the file contains no guide directive.
+================
+*/
+idStr idDeclFile::PreprocessGuides( const char *text, int textLength ) {
+	idLexer src;
+	if ( !src.LoadMemory( text, textLength, fileName ) ) {
+		return idStr( text );
+	}
+	src.SetFlags( DECL_LEXER_FLAGS );
+
+	idStr out;
+	idToken token, name, tmpl;
+	int copyFrom = 0;
+
+	while ( 1 ) {
+		int beforeTok = src.GetFileOffset();
+		if ( !src.ReadToken( &token ) ) {
+			break;
+		}
+		if ( token.Cmp( "guide" ) != 0 && token.Cmp( "inlineGuide" ) != 0 ) {
+			continue;
+		}
+
+		// flush everything seen so far, verbatim, up to this directive
+		out.Append( text + copyFrom, beforeTok - copyFrom );
+
+		if ( token.Cmp( "inlineGuide" ) == 0 ) {
+			// a template definition embedded in a decl file: consume and drop
+			src.ReadToken( &name );
+			src.ExpectTokenString( "(" );
+			while ( src.ReadToken( &token ) && token.Cmp( ")" ) != 0 ) {}
+			src.SkipBracedSection();
+			copyFrom = src.GetFileOffset();
+			continue;
+		}
+
+		// guide <declName> <templateName> ( args... )
+		src.ReadToken( &name );
+		src.ReadToken( &tmpl );
+		rvGuideTemplate *g = declManagerLocal.FindGuide( tmpl.c_str() );
+
+		idStr expanded;
+		if ( g != NULL ) {
+			expanded = name;
+			expanded += " ";
+			expanded += g->body;
+		}
+
+		src.ExpectTokenString( "(" );
+		int parmIndex = 0;
+		while ( src.ReadToken( &token ) && token.Cmp( ")" ) != 0 ) {
+			if ( token.Cmp( "," ) == 0 ) {
+				continue;
+			}
+			if ( g != NULL && parmIndex < g->parms.Num() ) {
+				expanded.Replace( g->parms[parmIndex].c_str(), token.c_str() );
+			}
+			parmIndex++;
+		}
+		copyFrom = src.GetFileOffset();
+
+		if ( g == NULL ) {
+			common->Warning( "guide template '%s' not found (in %s)", tmpl.c_str(), fileName.c_str() );
+		} else {
+			out += expanded;
+			out += "\n";
+		}
+	}
+
+	out.Append( text + copyFrom, textLength - copyFrom );
+	return out;
+}
+
+/*
+================
 idDeclFile::LoadAndParse
 
 This is used during both the initial load, and any reloads
@@ -676,6 +774,19 @@ int idDeclFile::LoadAndParse() {
 	if ( length == -1 ) {
 		common->FatalError( "couldn't load %s", fileName.c_str() );
 		return 0;
+	}
+
+	// RAVEN: expand any Quake 4 material guide directives. PreprocessGuides
+	// returns the text verbatim when the file uses no guides, so swapping the
+	// buffer is safe for every decl file (the parse, checksum, decl text
+	// extraction and free below all operate on the expanded text).
+	{
+		idStr expanded = PreprocessGuides( buffer, length );
+		Mem_Free( buffer );
+		length = expanded.Length();
+		buffer = (char *)Mem_Alloc( length + 1 );
+		memcpy( buffer, expanded.c_str(), length );
+		buffer[length] = '\0';
 	}
 
 	if ( !src.LoadMemory( buffer, length, fileName ) ) {
@@ -844,6 +955,72 @@ const char *listDeclStrings[] = { "current", "all", "ever", NULL };
 
 /*
 ===================
+idDeclManagerLocal::FindGuide
+===================
+*/
+rvGuideTemplate *idDeclManagerLocal::FindGuide( const char *name ) {
+	for ( int i = 0; i < guides.Num(); i++ ) {
+		if ( guides[i].name.Icmp( name ) == 0 ) {
+			return &guides[i];
+		}
+	}
+	return NULL;
+}
+
+/*
+===================
+idDeclManagerLocal::ParseGuides
+
+RAVEN: precache every guides/*.guide template (Quake 4 material templates).
+===================
+*/
+void idDeclManagerLocal::ParseGuides( void ) {
+	idFileList *fileList = fileSystem->ListFiles( "guides", ".guide", true );
+
+	for ( int i = 0; i < fileList->GetNumFiles(); i++ ) {
+		idLexer src;
+		idToken token;
+
+		idStr fname = "guides/";
+		fname += fileList->GetFile( i );
+		if ( !src.LoadFile( fname ) ) {
+			continue;
+		}
+		src.SetFlags( DECL_LEXER_FLAGS );
+
+		while ( !src.EndOfFile() ) {
+			if ( !src.ReadToken( &token ) ) {
+				break;
+			}
+			if ( token.Cmp( "guide" ) == 0 || token.Cmp( "inlineGuide" ) == 0 ) {
+				rvGuideTemplate guide;
+				guide.inlineGuide = ( token.Cmp( "inlineGuide" ) == 0 );
+
+				src.ReadToken( &token );
+				guide.name = token;
+
+				src.ExpectTokenString( "(" );
+				while ( src.ReadToken( &token ) && token.Cmp( ")" ) != 0 ) {
+					if ( token.Cmp( "," ) == 0 ) {
+						continue;
+					}
+					guide.parms.Append( token );
+				}
+
+				src.ParseBracedSection( guide.body );
+				guides.Append( guide );
+			} else {
+				src.Warning( "ParseGuides: unexpected token '%s'", token.c_str() );
+			}
+		}
+	}
+
+	common->Printf( "Found %d guides\n", guides.Num() );
+	fileSystem->FreeFileList( fileList );
+}
+
+/*
+===================
 idDeclManagerLocal::Init
 ===================
 */
@@ -875,6 +1052,10 @@ void idDeclManagerLocal::Init( void ) {
 	RegisterDeclType( "email",				DECL_EMAIL,			idDeclAllocator<idDeclEmail> );
 	RegisterDeclType( "video",				DECL_VIDEO,			idDeclAllocator<idDeclVideo> );
 	RegisterDeclType( "audio",				DECL_AUDIO,			idDeclAllocator<idDeclAudio> );
+
+	// RAVEN: load Quake 4 guide (material template) files before any .mtr that
+	// instantiates them via the "guide" directive.
+	ParseGuides();
 
 	RegisterDeclFolder( "materials",		".mtr",				DECL_MATERIAL );
 	RegisterDeclFolder( "skins",			".skin",			DECL_SKIN );

@@ -237,6 +237,85 @@ void Script_Transition(idWindow *window, idList<idGSWinVar> *src) {
 	}
 }
 
+/*
+=========================
+Script_NamedEvent
+
+RAVEN/Quake4: fire a window's named event. The argument is either
+"window::event" (target a specific window) or just "event" (run it on the
+calling window, which also propagates to its children). The Quake 4 main menu
+drives its whole screen setup through this (ingameCheck, showMain, ...), so
+without it the menu activates to a blank screen.
+=========================
+*/
+void Script_NamedEvent( idWindow *window, idList<idGSWinVar> *src ) {
+	idWinStr *parm = dynamic_cast<idWinStr*>( (*src)[0].var );
+	if ( !parm ) {
+		return;
+	}
+	idStr name = parm->c_str();
+	int sep = name.Find( "::" );
+	if ( sep >= 0 ) {
+		idStr winName = name.Left( sep );
+		idStr evName = name.Right( name.Length() - sep - 2 );
+		drawWin_t *dw = window->GetGui()->GetDesktop()->FindChildByName( winName );
+		if ( dw && dw->win ) {
+			dw->win->RunNamedEvent( evName );
+		}
+	} else {
+		window->RunNamedEvent( name );
+	}
+}
+
+/*
+=========================
+Script_StopTransitions
+
+RAVEN/Quake4: halt in-flight transitions on the named window (or the calling
+window) so the affected vars hold their current value.
+=========================
+*/
+void Script_StopTransitions( idWindow *window, idList<idGSWinVar> *src ) {
+	idWindow *target = window;
+	if ( src->Num() > 0 ) {
+		idWinStr *parm = dynamic_cast<idWinStr*>( (*src)[0].var );
+		if ( parm && parm->c_str()[0] != '\0' ) {
+			drawWin_t *dw = window->GetGui()->GetDesktop()->FindChildByName( *parm );
+			if ( dw && dw->win ) {
+				target = dw->win;
+			}
+		}
+	}
+	target->ClearTransitions();
+}
+
+/*
+=========================
+Script_ConsoleCmd
+
+RAVEN/Quake4: queue a console command (menu actions route through this).
+=========================
+*/
+void Script_ConsoleCmd( idWindow *window, idList<idGSWinVar> *src ) {
+	idWinStr *parm = dynamic_cast<idWinStr*>( (*src)[0].var );
+	if ( parm ) {
+		idStr cmd = parm->c_str();
+		cmd += "\n";
+		cmdSystem->BufferCommandText( CMD_EXEC_APPEND, cmd );
+	}
+}
+
+/*
+=========================
+Script_ResetVideo
+
+RAVEN/Quake4: restart a window's background video. We don't decode the intro
+attract videos, so this is a no-op.
+=========================
+*/
+void Script_ResetVideo( idWindow *window, idList<idGSWinVar> *src ) {
+}
+
 typedef struct {
 	const char *name;
 	void (*handler) (idWindow *window, idList<idGSWinVar> *src);
@@ -254,7 +333,12 @@ guiCommandDef_t commandList[] = {
 	{ "transition", Script_Transition, 4, 6 },
 	{ "localSound", Script_LocalSound, 1, 1 },
 	{ "runScript", Script_RunScript, 1, 1 },
-	{ "evalRegs", Script_EvalRegs, 0, 0 }
+	{ "evalRegs", Script_EvalRegs, 0, 0 },
+	// RAVEN: Quake 4 GUI script commands
+	{ "namedEvent", Script_NamedEvent, 1, 1 },
+	{ "stopTransitions", Script_StopTransitions, 0, 1 },
+	{ "consoleCmd", Script_ConsoleCmd, 1, 1 },
+	{ "resetVideo", Script_ResetVideo, 0, 1 }
 };
 
 int	scriptCommandCount = sizeof(commandList) / sizeof(guiCommandDef_t);

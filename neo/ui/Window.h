@@ -290,6 +290,7 @@ public:
 	bool HasOps() {	return (ops.Num() > 0); };
 	float EvalRegs(int test = -1, bool force = false);
 	void StartTransition();
+	void ClearTransitions() { transitions.SetNum( 0, false ); }	// RAVEN: stopTransitions GUI cmd
 	void AddTransition(idWinVar *dest, idVec4 from, idVec4 to, int time, float accelTime, float decelTime);
 	void ResetTime(int time);
 	void ResetCinematics();

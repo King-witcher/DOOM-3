@@ -186,26 +186,31 @@ void Script_Transition(idWindow *window, idList<idGSWinVar> *src) {
 	if (src->Num() >= 4) {
 		idWinRectangle *rect = NULL;
 		idWinVec4 *vec4 = dynamic_cast<idWinVec4*>((*src)[0].var);
-		// 
+		//
 		//  added float variable
 		idWinFloat* val = NULL;
-		// 
+		// RAVEN: a single vec4/rect component (e.g. "matcolor_w") resolves to this
+		idWinFloatMember *member = NULL;
+		//
 		if (vec4 == NULL) {
 			rect = dynamic_cast<idWinRectangle*>((*src)[0].var);
-			// 
-			//  added float variable					
+			//
+			//  added float variable
 			if ( NULL == rect ) {
 				val = dynamic_cast<idWinFloat*>((*src)[0].var);
+				if ( NULL == val ) {
+					member = dynamic_cast<idWinFloatMember*>((*src)[0].var);
+				}
 			}
-			// 
+			//
 		}
 		idWinVec4 *from = dynamic_cast<idWinVec4*>((*src)[1].var);
 		idWinVec4 *to = dynamic_cast<idWinVec4*>((*src)[2].var);
 		idWinStr *timeStr = dynamic_cast<idWinStr*>((*src)[3].var);
-		// 
-		//  added float variable					
-		if (!((vec4 || rect || val) && from && to && timeStr)) {
-			// 
+		//
+		//  added float variable
+		if (!((vec4 || rect || val || member) && from && to && timeStr)) {
+			//
 			common->Warning("Bad transition in gui %s in window %s\n", window->GetGui()->GetSourceFile(), window->GetName());
 			return;
 		}
@@ -223,12 +228,16 @@ void Script_Transition(idWindow *window, idList<idGSWinVar> *src) {
 		if (vec4) {
 			vec4->SetEval(false);
 			window->AddTransition(vec4, *from, *to, time, ac, dc);
-			// 
-			//  added float variable					
+			//
+			//  added float variable
 		} else if ( val ) {
 			val->SetEval ( false );
 			window->AddTransition(val, *from, *to, time, ac, dc);
-			// 
+			// RAVEN: single vec4/rect component
+		} else if ( member ) {
+			member->SetEval( false );
+			window->AddTransition(member, *from, *to, time, ac, dc);
+			//
 		} else {
 			rect->SetEval(false);
 			window->AddTransition(rect, *from, *to, time, ac, dc);

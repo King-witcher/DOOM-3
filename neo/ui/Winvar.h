@@ -852,5 +852,89 @@ public:
 	void SetGuiInfo( idDict *dict );
 };
 
+/*
+================
+idWinFloatMember
+
+RAVEN: a float "view" into one component of an idWinVec4 (x/y/z/w) or an
+idWinRectangle (x/y/w/h). Quake 4 GUIs address vec4/rect components directly,
+e.g. "matcolor_w" or "rect_h" in set/transition statements; GetWinVarByName
+synthesizes one of these on demand. Reads/writes go through the owner's public
+interface so the backing gui dict stays in sync.
+================
+*/
+class idWinFloatMember : public idWinVar {
+public:
+	idWinFloatMember() : idWinVar(), owner( NULL ), component( 0 ) {}
+	idWinFloatMember( idWinVar *base, int index ) : idWinVar(), owner( base ), component( index ) {}
+
+	virtual void Init( const char *_name, idWindow *win ) { idWinVar::Init( _name, win ); }
+	virtual void Update() { if ( owner ) { owner->Update(); } }
+
+	virtual void Set( const char *val ) {
+		if ( !owner ) {
+			return;
+		}
+		float f = atof( val );
+		if ( idWinVec4 *v4 = dynamic_cast<idWinVec4 *>( owner ) ) {
+			idVec4 cur = *v4;
+			if ( component >= 0 && component < 4 ) {
+				cur[component] = f;
+			}
+			*v4 = cur;
+		} else if ( idWinRectangle *r = dynamic_cast<idWinRectangle *>( owner ) ) {
+			idRectangle cur = *r;
+			switch ( component ) {
+				case 0: cur.x = f; break;
+				case 1: cur.y = f; break;
+				case 2: cur.w = f; break;
+				case 3: cur.h = f; break;
+			}
+			*r = cur;
+		}
+	}
+
+	virtual const char *c_str() const { return va( "%g", x() ); }
+
+	virtual float x( void ) const {
+		if ( !owner ) {
+			return 0.0f;
+		}
+		if ( idWinVec4 *v4 = dynamic_cast<idWinVec4 *>( owner ) ) {
+			idVec4 cur = *v4;
+			if ( component >= 0 && component < 4 ) {
+				return cur[component];
+			}
+		} else if ( idWinRectangle *r = dynamic_cast<idWinRectangle *>( owner ) ) {
+			idRectangle cur = *r;
+			switch ( component ) {
+				case 0: return cur.x;
+				case 1: return cur.y;
+				case 2: return cur.w;
+				case 3: return cur.h;
+			}
+		}
+		return 0.0f;
+	}
+
+	virtual void WriteToSaveGame( idFile *savefile ) {
+		float f = x();
+		savefile->Write( &f, sizeof( f ) );
+	}
+	virtual void ReadFromSaveGame( idFile *savefile ) {
+		float f = 0.0f;
+		savefile->Read( &f, sizeof( f ) );
+		Set( va( "%g", f ) );
+	}
+	virtual size_t Size() { return sizeof( *this ); }
+
+	idWinVar *	GetOwner() const { return owner; }
+	int			GetComponent() const { return component; }
+
+private:
+	idWinVar *	owner;
+	int			component;
+};
+
 #endif /* !__WINVAR_H__ */
 

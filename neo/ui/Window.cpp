@@ -1004,10 +1004,14 @@ void idWindow::Transition() {
 		idWinRectangle *r = NULL;
 		idWinVec4 *v4 = dynamic_cast<idWinVec4*>(data->data);
 		idWinFloat* val = NULL;
+		idWinFloatMember *member = NULL;	// RAVEN: single vec4/rect component
 		if (v4 == NULL) {
 			r = dynamic_cast<idWinRectangle*>(data->data);
 			if ( !r ) {
 				val = dynamic_cast<idWinFloat*>(data->data);
+				if ( !val ) {
+					member = dynamic_cast<idWinFloatMember*>(data->data);
+				}
 			}
 		}
 		if ( data->interp.IsDone( gui->GetTime() ) && data->data) {
@@ -1015,6 +1019,8 @@ void idWindow::Transition() {
 				*v4 = data->interp.GetEndValue();
 			} else if ( val ) {
 				*val = data->interp.GetEndValue()[0];
+			} else if ( member ) {
+				member->Set( va( "%g", data->interp.GetEndValue()[0] ) );
 			} else {
 				*r = data->interp.GetEndValue();
 			}
@@ -1025,6 +1031,8 @@ void idWindow::Transition() {
 					*v4 = data->interp.GetCurrentValue( gui->GetTime() );
 				} else if ( val ) {
 					*val = data->interp.GetCurrentValue( gui->GetTime() )[0];
+				} else if ( member ) {
+					member->Set( va( "%g", data->interp.GetCurrentValue( gui->GetTime() )[0] ) );
 				} else {
 					*r = data->interp.GetCurrentValue( gui->GetTime() );
 				}
@@ -1872,6 +1880,45 @@ idWinVar *idWindow::GetWinVarByName(const char *_name, bool fixup, drawWin_t** o
 			} 
 		}
 	}
+
+	// RAVEN: vec4/rect component access, e.g. "matcolor_w" -> the W of matColor.
+	// Quake 4 menus drive their fade-ins and button reveals through these, so
+	// synthesize a float member that reads/writes the single component.
+	{
+		static bool preventRecursion = false;
+		int nlen = idStr::Length( _name );
+		if ( !preventRecursion && nlen > 2 && _name[nlen - 2] == '_' ) {
+			char suffix = (char)tolower( _name[nlen - 1] );
+			idStr baseName = _name;
+			baseName.CapLength( nlen - 2 );
+			preventRecursion = true;
+			idWinVar *baseVar = GetWinVarByName( baseName.c_str(), fixup, owner );
+			preventRecursion = false;
+			int index = -1;
+			if ( dynamic_cast<idWinVec4 *>( baseVar ) ) {
+				switch ( suffix ) {
+					case 'x': index = 0; break;
+					case 'y': index = 1; break;
+					case 'z': index = 2; break;
+					case 'w': index = 3; break;
+				}
+			} else if ( dynamic_cast<idWinRectangle *>( baseVar ) ) {
+				switch ( suffix ) {
+					case 'x': index = 0; break;
+					case 'y': index = 1; break;
+					case 'w': index = 2; break;
+					case 'h': index = 3; break;
+				}
+			}
+			if ( index != -1 ) {
+				idWinFloatMember *member = new idWinFloatMember( baseVar, index );
+				member->Init( _name, this );
+				definedVars.Append( member );
+				return member;
+			}
+		}
+	}
+
 	return NULL;
 }
 

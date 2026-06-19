@@ -395,7 +395,7 @@ the renderSystem is initialized
 ==============
 */
 void idConsoleLocal::LoadGraphics() {
-	charSetShader = declManager->FindMaterial( "textures/bigchars" );
+	charSetShader = declManager->FindMaterial( "gfx/2d/bigchars" );	// RAVEN/Q4: was textures/bigchars
 	whiteShader = declManager->FindMaterial( "_white" );
 	consoleShader = declManager->FindMaterial( "console" );
 }

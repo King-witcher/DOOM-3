@@ -181,6 +181,7 @@ public:
 		ON_ACTIONRELEASE,
 		ON_ENTER,
 		ON_ENTERRELEASE,
+		ON_BACKACTION,		// RAVEN/Q4: fired on the menu "back" action
 		SCRIPT_COUNT
 	};
 

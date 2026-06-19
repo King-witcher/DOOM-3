@@ -10,7 +10,7 @@ public class Cap {
 }
 "@
 $exe = "C:\code\id\DOOM-3\build\Win32\Release\DOOM3.exe"
-$argv = @("+set","fs_basepath","C:\code\id\DOOM-3\run\q4","+set","fs_game","q4base","+set","fs_savepath","C:\code\id\DOOM-3\run\q4save","+set","si_pure","0","+set","fs_restrict","0","+set","com_allowConsole","1","+set","logFile","2","+set","r_fullscreen","0")
+$argv = @("+set","fs_basepath","C:\code\id\DOOM-3\run\q4","+set","fs_game","q4base","+set","fs_savepath","C:\code\id\DOOM-3\run\q4save","+set","si_pure","0","+set","fs_restrict","0","+set","com_allowConsole","1","+set","logFile","2","+set","r_fullscreen","0","+set","image_usePrecompressedTextures","0")
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $exe; $psi.WorkingDirectory = Split-Path $exe; $psi.UseShellExecute = $false
 $psi.Arguments = ($argv -join ' ')

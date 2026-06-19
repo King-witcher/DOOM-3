@@ -101,7 +101,8 @@ const char *idWindow::ScriptNames[] = {
 	"onTrigger",
 	"onActionRelease",
 	"onEnter",
-	"onEnterRelease"
+	"onEnterRelease",
+	"onBackAction"
 };
 
 /*
@@ -2113,7 +2114,7 @@ bool idWindow::ParseRegEntry(const char *name, idParser *src) {
 
 	// not predefined so just read the next token and add it to the state
 	idToken tok;
-	idVec4 v;	
+	idVec4 v;
 	idWinInt *vari;
 	idWinFloat *varf;
 	idWinStr *vars;
@@ -2537,9 +2538,17 @@ bool idWindow::Parse( idParser *src, bool rebuild) {
 			}
 #endif
 		}
+		else if ( token == "defineicon" ) {
+			// RAVEN/Q4: defineicon "name" "material" declares a named icon (a
+			// material reference) used mostly by the multiplayer server-browser
+			// list. Consume both tokens so the windowDef token stream stays in
+			// sync; actual icon lookup is not wired up yet.
+			src->ReadToken( &token );	// icon name
+			src->ReadToken( &token );	// material path
+		}
 		else if (ParseScriptEntry(token, src)) {
 			// add the script to the wrappers script list
-			// If we are in the gui editor then add the internal var to the 
+			// If we are in the gui editor then add the internal var to the
 			// the wrapper
 #ifdef ID_ALLOW_TOOLS
 			if ( com_editors & EDITOR_GUI ) {

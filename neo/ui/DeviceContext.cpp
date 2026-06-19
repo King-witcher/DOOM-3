@@ -203,7 +203,14 @@ bool idDeviceContext::ClippedCoords(float *x, float *y, float *w, float *h, floa
 	int c = clipRects.Num();
 	while( --c > 0 ) {
 		idRectangle *clipRect = &clipRects[c];
- 
+
+		// RAVEN/Q4: a zero-size clip rect (a *visible* container window whose rect
+		// register evaluated to 0,0,0,0) must not clip the entire menu to nothing.
+		// Treat a degenerate clip rect as "no constraint" and skip it.
+		if ( clipRect->w <= 0.0f || clipRect->h <= 0.0f ) {
+			continue;
+		}
+
 		float ox = *x;
 		float oy = *y;
 		float ow = *w;
@@ -364,7 +371,7 @@ void idDeviceContext::DrawStretchPic(float x, float y, float w, float h, float s
 	}
 
 	renderSystem->DrawStretchPic( &verts[0], &indexes[0], 4, 6, shader, ident );
-	
+
 }
 
 

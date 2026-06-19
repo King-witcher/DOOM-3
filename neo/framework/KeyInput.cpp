@@ -381,7 +381,13 @@ const char *idKeyInput::KeyNumToString( int keynum, bool localized ) {
 						return common->GetLanguageDict()->GetString( kn->strId ); break;
 				}
 #else
-				return common->GetLanguageDict()->GetString( kn->strId );
+				{
+					// RAVEN/Q4: Quake 4's .lang has no DOOM 3 #str_070xx key-name
+					// strings; fall back to the raw key name ("TAB", "ESCAPE", ...)
+					// instead of displaying the unresolved "#str_070xx".
+					const char *loc = common->GetLanguageDict()->GetString( kn->strId );
+					return ( !loc || idStr::Cmpn( loc, "#str_", 5 ) == 0 ) ? kn->name : loc;
+				}
 #endif
 			}
 		}

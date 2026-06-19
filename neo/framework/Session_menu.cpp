@@ -73,6 +73,11 @@ void idSessionLocal::StartMenu( bool playIntro ) {
 	// "videoBlack" overlay. Force-skip it so the main menu is shown. (Restore the
 	// playIntro flag once RoQ/Bink intro playback is wired up.)
 	guiMainMenu->HandleNamedEvent( "noIntro" );
+	// RAVEN/Q4: the gui's NoIntro handler is empty -- in retail the intro video
+	// sequence ends by revealing the main-menu buttons (a 'mainReset'). Since we
+	// force-skip the intro, fire that reveal ourselves so NEW GAME / LOAD GAME /
+	// SETTINGS / EXIT are visible instead of waiting for a mouse-over.
+	guiMainMenu->HandleNamedEvent( "mainReset" );
 
 
 	if(fileSystem->HasD3XP()) {

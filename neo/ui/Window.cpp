@@ -651,10 +651,10 @@ void idWindow::RunNamedEvent ( const char* eventName )
 		}
 		
 		RunScriptList( namedEvents[i]->mEvent );
-		
+
 		break;
 	}
-	
+
 	// Run the event in all the children as well
 	c = children.Num();
 	for ( i = 0; i < c; i++ ) {

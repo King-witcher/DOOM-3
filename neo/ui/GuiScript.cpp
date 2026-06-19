@@ -637,7 +637,10 @@ void idGuiScript::FixupParms(idWindow *win) {
 			if ( dest ) {	
 				idWindow* ownerparent;
 				idWindow* destparent;
-				if ( owner ) {
+				// RAVEN/Q4: destowner is NULL when the transition destination var
+				// (parms[0]) failed to resolve; the stock guard only checked `owner`
+				// then dereferenced destowner -> null crash. Require both.
+				if ( owner && destowner ) {
 					ownerparent = owner->simp?owner->simp->GetParent():owner->win->GetParent();
 					destparent  = destowner->simp?destowner->simp->GetParent():destowner->win->GetParent();
 

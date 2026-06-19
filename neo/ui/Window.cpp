@@ -1249,7 +1249,7 @@ void idWindow::Redraw(float x, float y) {
 
 	idVec3	oldOrg;
 	idMat3	oldTrans;
-		
+
 	dc->GetTransformInfo( oldOrg, oldTrans );
 
 	SetupTransforms(x, y);
@@ -2119,12 +2119,38 @@ bool idWindow::ParseRegEntry(const char *name, idParser *src) {
 	idWinFloat *varf;
 	idWinStr *vars;
 	if (src->ReadToken(&tok)) {
+		// RAVEN/Q4: the GUI lexer splits "-1" into '-' and '1'. An unregistered
+		// keyword (e.g. `textspacing -1`, used ~49x in mainmenu.gui) would store
+		// just "-" and leak the number into the windowDef stream, desyncing it and
+		// over-reading the rest of the file. Re-attach a leading sign to the number.
+		if ( tok == "-" || tok == "+" ) {
+			idToken num;
+			if ( src->ReadToken( &num ) ) {
+				if ( num.type == TT_NUMBER ) {
+					tok += num;
+				} else {
+					src->UnreadToken( &num );
+				}
+			}
+		}
+		// RAVEN/Q4: never swallow a structural brace as a property value. Quake 4
+		// guis use constructs our D3 parser desyncs on by one token (e.g. a value
+		// our lexer splits differently); without this guard the shifted stream
+		// eventually reads a windowDef's closing '}' as a value, so the window
+		// never closes and over-reads its siblings to EOF (the whole p_savegame /
+		// p_loadgame / p_mp_browse subtree was being absorbed). Pushing the brace
+		// back lets the windowDef loop close the window at its real '}', containing
+		// any desync to a single window instead of cascading.
+		if ( tok == "{" || tok == "}" ) {
+			src->UnreadToken( &tok );
+			return true;
+		}
 		if (var) {
 			var->Set(tok);
 			return true;
 		}
 		switch (tok.type) {
-			case TT_NUMBER : 
+			case TT_NUMBER :
 				if (tok.subtype & TT_INTEGER) {
 					vari = new idWinInt();
 					*vari = atoi(tok);

@@ -225,6 +225,10 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 		else if ( !token.Icmp( "volume" ) ) {
 			parms.volume = src.ParseFloat();
 		}
+		// RAVEN/Q4: volumeDb is the same dB-scale volume (parms.volume is already in dB)
+		else if ( !token.Icmp( "volumeDb" ) ) {
+			parms.volume = src.ParseFloat();
+		}
 		// leadinVolume is used to allow light breaking leadin sounds to be much louder than the broken loop
 		else if ( !token.Icmp( "leadinVolume" ) ) {
 			leadinVolume = src.ParseFloat();
@@ -292,6 +296,16 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 		else if ( !token.Icmp( "no_occlusion" ) ) {
 			parms.soundShaderFlags |= SSF_NO_OCCLUSION;
 		}
+		// RAVEN/Q4: omnidirectional flag (D3 has the bit but not the keyword)
+		else if ( !token.Icmp( "omnidirectional" ) ) {
+			parms.soundShaderFlags |= SSF_OMNIDIRECTIONAL;
+		}
+		// RAVEN/Q4: shakeData <scale> <pattern-string> drives screen shake from a
+		// sound; we don't implement it yet -- consume both tokens so parsing succeeds
+		else if ( !token.Icmp( "shakeData" ) ) {
+			src.ParseFloat();
+			src.ReadToken( &token );
+		}
 		// private
 		else if ( !token.Icmp( "private" ) ) {
 			parms.soundShaderFlags |= SSF_PRIVATE_SOUND;
@@ -333,7 +347,10 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 				leadins[ numLeadins ] = soundSystemLocal.soundCache->FindSound( token.c_str(), onDemand );
 				numLeadins++;
 			}
-		} else if ( token.Find( ".wav", false ) != -1 || token.Find( ".ogg", false ) != -1 ) {
+		} else if ( token.Find( ".wav", false ) != -1 || token.Find( ".ogg", false ) != -1 || token.Icmpn( "sound/", 6 ) == 0 ) {
+			// RAVEN/Q4: Quake 4 lists sound samples by path with no extension
+			// (e.g. "sound/guis/generic/menu_over"); the FindSound/sample loader
+			// resolves the .wav/.ogg. The "sound/" prefix marks it as a sample.
 			// add to the wav list
 			if ( soundSystemLocal.soundCache && numEntries < maxSamples ) {
 				token.BackSlashesToSlashes();

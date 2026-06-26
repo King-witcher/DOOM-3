@@ -135,6 +135,12 @@ idRenderModel *idRenderWorldLocal::ParseModel( idLexer *src ) {
 		src->Error( "R_ParseModel: bad numSurfaces" );
 	}
 
+	// RAVEN/Q4: world area models (_area*) carry an extra int "sky" flag (does this
+	// area touch the portal sky) between numSurfaces and the first surface.
+	if ( !idStr::Cmpn( token.c_str(), "_area", 5 ) ) {
+		src->ParseInt();		// sky flag -- unused by the runtime renderer
+	}
+
 	for ( i = 0 ; i < numSurfaces ; i++ ) {
 		src->ExpectTokenString( "{" );
 
@@ -530,7 +536,18 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 		WriteLoadMap();
 	}
 
-	if ( !src->ReadToken( &token ) || token.Icmp( PROC_FILE_ID ) ) {
+	// RAVEN/Q4 .proc begins with `PROC "<version>" <crc>` (e.g. PROC "4"); the D3
+	// format used a single `mapProcFile003` id token. Accept both.
+	if ( !src->ReadToken( &token ) ) {
+		common->Printf( "idRenderWorldLocal::InitFromMap: empty proc file\n" );
+		delete src;
+		return false;
+	}
+	if ( token == "PROC" ) {
+		idToken hdr;
+		src->ReadToken( &hdr );		// version string, e.g. "4"
+		src->ReadToken( &hdr );		// proc CRC (cross-checked against the .cm elsewhere)
+	} else if ( token.Icmp( PROC_FILE_ID ) ) {
 		common->Printf( "idRenderWorldLocal::InitFromMap: bad id '%s' instead of '%s'\n", token.c_str(), PROC_FILE_ID );
 		delete src;
 		return false;

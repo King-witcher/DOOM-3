@@ -1559,7 +1559,9 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	fullMapName.StripFileExtension();
 
 	// shut down the existing game if it is running
+	common->Printf( "[Q4trace] (6a) ExecuteMapChange: calling UnloadMap (game->MapShutdown)...\n" );
 	UnloadMap();
+	common->Printf( "[Q4trace] (6b) UnloadMap returned\n" );
 
 	// don't do the deferred caching if we are reloading the same map
 	if ( fullMapName == currentMapName ) {
@@ -1580,7 +1582,9 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	uiManager->Reload( true );
 
 	// set the loading gui that we will wipe to
+	common->Printf( "[Q4trace] (6c) calling LoadLoadingGui (game->GetLoadingGui)...\n" );
 	LoadLoadingGui( mapString );
+	common->Printf( "[Q4trace] (6d) LoadLoadingGui returned\n" );
 
 	// cause prints to force screen updates as a pacifier,
 	// and draw the loading gui instead of game draws
@@ -1618,9 +1622,11 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	common->Printf( "Map: %s\n", mapString.c_str() );
 
 	// let the renderSystem load all the geometry
+	common->Printf( "[Q4trace] (6e) calling rw->InitFromMap...\n" );
 	if ( !rw->InitFromMap( fullMapName ) ) {
 		common->Error( "couldn't load %s", fullMapName.c_str() );
 	}
+	common->Printf( "[Q4trace] (6f) rw->InitFromMap returned OK\n" );
 
 	// for the synchronous networking we needed to roll the angles over from
 	// level to level, but now we can just clear everything
@@ -1628,10 +1634,12 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 	memset( &mapSpawnData.mapSpawnUsercmd, 0, sizeof( mapSpawnData.mapSpawnUsercmd ) );
 
 	// set the user info
+	common->Printf( "[Q4trace] (6g) calling game->SetUserInfo / SetPersistentPlayerInfo (numClients=%d)...\n", numClients );
 	for ( i = 0; i < numClients; i++ ) {
 		game->SetUserInfo( i, mapSpawnData.userInfo[i], idAsyncNetwork::client.IsActive() ); // RAVEN/Q4: dropped canModify
 		game->SetPersistentPlayerInfo( i, mapSpawnData.persistentPlayerInfo[i] );
 	}
+	common->Printf( "[Q4trace] (6h) game->SetUserInfo done\n" );
 
 	// load and spawn all other entities ( from a savegame possibly )
 	common->Printf( "[Q4trace] (6/7) Session reached MAP LOAD (ExecuteMapChange) -- engine is past game->Init\n" );
@@ -1646,15 +1654,19 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 			game->InitFromNewMap( fullMapName + ".map", rw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() ); // RAVEN/Q4: dropped idSoundWorld* arg
 		}
 	} else {
+		common->Printf( "[Q4trace] (7) calling game->SetServerInfo + InitFromNewMap...\n" );
 		game->SetServerInfo( mapSpawnData.serverInfo );
 		game->InitFromNewMap( fullMapName + ".map", rw, idAsyncNetwork::server.IsActive(), idAsyncNetwork::client.IsActive(), Sys_Milliseconds() ); // RAVEN/Q4: dropped idSoundWorld* arg
+		common->Printf( "[Q4trace] (8) game->InitFromNewMap returned\n" );
 	}
 
 	if ( !idAsyncNetwork::IsActive() && !loadingSaveGame ) {
 		// spawn players
+		common->Printf( "[Q4trace] (9) calling game->SpawnPlayer loop...\n" );
 		for ( i = 0; i < numClients; i++ ) {
 			game->SpawnPlayer( i );
 		}
+		common->Printf( "[Q4trace] (10) game->SpawnPlayer done\n" );
 	}
 
 	// actually purge/load the media
@@ -1668,9 +1680,11 @@ void idSessionLocal::ExecuteMapChange( bool noFadeWipe ) {
 
 	if ( !idAsyncNetwork::IsActive() && !loadingSaveGame ) {
 		// run a few frames to allow everything to settle
+		common->Printf( "[Q4trace] (11) calling game->RunFrame x10 to settle...\n" );
 		for ( i = 0; i < 10; i++ ) {
 			game->RunFrame( mapSpawnData.mapSpawnUsercmd, 0, true, i ); // RAVEN/Q4: activeEditors=0, lastCatchupFrame=true, serverGameFrame=i
 		}
+		common->Printf( "[Q4trace] (12) game->RunFrame settle loop done\n" );
 	}
 
 	common->Printf ("-----------------------------------\n");

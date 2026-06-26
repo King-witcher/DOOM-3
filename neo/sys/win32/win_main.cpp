@@ -1358,35 +1358,98 @@ EXCEPTION_DISPOSITION __cdecl _except_handler( struct _EXCEPTION_RECORD *Excepti
 								0
 
 // ===== Quake4 port: crash-diagnostic Vectored Exception Handler =====
+#include <dbghelp.h>
 static volatile long q4_faultCount = 0;
+static bool q4_symReady = false;
 
-static void Q4_LogFault( const char *tag, void *addr ) {
+// resolve a code address to "module.dll+0xRVA" (basename only)
+static void Q4_Resolve( void *addr, char *out, int outsz ) {
 	HMODULE hmod = NULL;
-	char modpath[MAX_PATH] = "?";
-	uintptr_t off = 0;
 	if ( GetModuleHandleEx( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
 			(LPCSTR)addr, &hmod ) && hmod ) {
+		char modpath[MAX_PATH] = "";
 		GetModuleFileNameA( hmod, modpath, sizeof( modpath ) );
-		off = (uintptr_t)addr - (uintptr_t)hmod;
+		const char *base = strrchr( modpath, '\\' );
+		base = base ? base + 1 : modpath;
+		idStr::snPrintf( out, outsz, "%s+0x%X", base, (unsigned int)( (uintptr_t)addr - (uintptr_t)hmod ) );
+	} else {
+		idStr::snPrintf( out, outsz, "?(%p)", addr );
 	}
+}
+
+// is p a committed, executable page? (=> a plausible return address on the stack)
+static bool Q4_IsExecAddr( void *p ) {
+	MEMORY_BASIC_INFORMATION mbi;
+	if ( VirtualQuery( p, &mbi, sizeof( mbi ) ) != sizeof( mbi ) ) return false;
+	if ( mbi.State != MEM_COMMIT ) return false;
+	DWORD prot = mbi.Protect & 0xFF;
+	return ( prot == PAGE_EXECUTE || prot == PAGE_EXECUTE_READ ||
+			 prot == PAGE_EXECUTE_READWRITE || prot == PAGE_EXECUTE_WRITECOPY );
+}
+
+// resolve via PDB symbols (function names AND data symbols like vftables) so a bad
+// vtable jump names the mis-indexed class; falls back to module+RVA
+static void Q4_Sym( void *addr, char *out, int outsz ) {
+	if ( !q4_symReady ) {
+		SymSetOptions( SYMOPT_UNDNAME | SYMOPT_LOAD_LINES );
+		// point the search path at the build dir so DoomDLL.pdb (DOOM3.exe's PDB) loads
+		q4_symReady = ( SymInitialize( GetCurrentProcess(),
+			"C:\\code\\id\\DOOM-3\\build\\Win32\\Release", TRUE ) != FALSE );
+		SymRefreshModuleList( GetCurrentProcess() );
+	}
+	if ( q4_symReady ) {
+		char b[ sizeof( SYMBOL_INFO ) + 300 ];
+		SYMBOL_INFO *si = (SYMBOL_INFO *)b;
+		si->SizeOfStruct = sizeof( SYMBOL_INFO );
+		si->MaxNameLen = 299;
+		DWORD64 disp = 0;
+		if ( SymFromAddr( GetCurrentProcess(), (DWORD64)(uintptr_t)addr, &disp, si ) ) {
+			idStr::snPrintf( out, outsz, "%s+0x%X", si->Name, (unsigned int)disp );
+			return;
+		}
+	}
+	Q4_Resolve( addr, out, outsz );
+}
+
+static void Q4_LogFault( EXCEPTION_POINTERS *ep ) {
+	EXCEPTION_RECORD *er = ep->ExceptionRecord;
+	CONTEXT *ctx = ep->ContextRecord;
 	FILE *f = fopen( "C:\\code\\id\\DOOM-3\\.vscode\\q4-crash.txt", "a" );
-	if ( f ) {
-		fprintf( f, "%s addr=%p module=%s base=%p offset=0x%p\n", tag, addr, modpath, (void *)hmod, (void *)off );
-		fclose( f );
+	if ( !f ) return;
+	char sym[320];
+	Q4_Sym( er->ExceptionAddress, sym, sizeof( sym ) );
+	fprintf( f, "exc=0x%08lX ip=%s\n", er->ExceptionCode, sym );
+	if ( er->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && er->NumberParameters >= 2 ) {
+		fprintf( f, "  AV %s addr=0x%p\n",
+			er->ExceptionInformation[0] == 8 ? "EXEC" : ( er->ExceptionInformation[0] ? "WRITE" : "READ" ),
+			(void *)er->ExceptionInformation[1] );
 	}
-	char buf[512];
-	idStr::snPrintf( buf, sizeof( buf ), "[Q4CRASH] %s addr=%p module=%s offset=0x%p\n", tag, addr, modpath, (void *)off );
-	OutputDebugStringA( buf );
+	// ECX is the thiscall 'this'; for a null-vtable call the vtable slot was 0 => jumped to IP=0
+	fprintf( f, "  eax=%08lX ecx=%08lX edx=%08lX ebx=%08lX esi=%08lX edi=%08lX ebp=%08lX esp=%08lX\n",
+		ctx->Eax, ctx->Ecx, ctx->Edx, ctx->Ebx, ctx->Esi, ctx->Edi, ctx->Ebp, ctx->Esp );
+	// walk the stack: the call that jumped to a null fn-ptr pushed its return address at [esp];
+	// log every executable address we find => a pseudo call-stack pinpointing the caller
+	void **esp = (void **)ctx->Esp;
+	int logged = 0;
+	for ( int i = 0; i < 160 && logged < 20; i++ ) {
+		if ( IsBadReadPtr( esp + i, sizeof( void * ) ) ) break;
+		if ( Q4_IsExecAddr( esp[i] ) ) {
+			Q4_Sym( esp[i], sym, sizeof( sym ) );
+			fprintf( f, "  stk[%03d]=%s\n", i, sym );
+			logged++;
+		}
+	}
+	fprintf( f, "----\n" );
+	fclose( f );
+	OutputDebugStringA( "[Q4CRASH] logged fault (see .vscode/q4-crash.txt)\n" );
 }
 
 static LONG WINAPI Q4_VEH( EXCEPTION_POINTERS *ep ) {
 	DWORD code = ep->ExceptionRecord->ExceptionCode;
 	bool isFP = ( code >= 0xC0000090 && code <= 0xC0000095 );
 	if ( isFP || code == EXCEPTION_ACCESS_VIOLATION ) {
-		if ( InterlockedIncrement( &q4_faultCount ) <= 16 ) {
-			char tag[64];
-			idStr::snPrintf( tag, sizeof( tag ), "exc=0x%08lX", code );
-			Q4_LogFault( tag, ep->ExceptionRecord->ExceptionAddress );
+		if ( InterlockedIncrement( &q4_faultCount ) <= 8 ) {
+			Q4_LogFault( ep );
 		}
 		if ( isFP ) {
 			// swallow + recover: mask all x87 exceptions, clear the status/busy bits,

@@ -24,6 +24,7 @@ $argv = @(
   "+set","r_fullscreen","0","+set","image_usePrecompressedTextures","0",
   "+set","r_windowX","$wx","+set","r_windowY","$wy",
   "+set","g_skill","1",
+  "+set","com_forceGenericSIMD","1",
   "+map","$Map")
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $exe; $psi.WorkingDirectory = Split-Path $exe; $psi.UseShellExecute = $false

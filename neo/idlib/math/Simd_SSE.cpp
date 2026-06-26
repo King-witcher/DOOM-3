@@ -45,13 +45,17 @@ If you have questions concerning this license or the applicable additional terms
 
 #include <xmmintrin.h>
 
-#define DRAWVERT_SIZE				60
+// RAVEN/Q4 idDrawVert is 64 bytes (xyz,color,normal,color2,tangents[2],st). These SSE
+// routines' AOS->SOA shuffles still assume the OLD field adjacency, so we run with
+// com_forceGenericSIMD 1 until they're rewritten; the size below keeps asserts valid.
+#define DRAWVERT_SIZE				64
 #define DRAWVERT_XYZ_OFFSET			(0*4)
-#define DRAWVERT_ST_OFFSET			(3*4)
-#define DRAWVERT_NORMAL_OFFSET		(5*4)
+#define DRAWVERT_COLOR_OFFSET		(3*4)
+#define DRAWVERT_NORMAL_OFFSET		(4*4)
+#define DRAWVERT_COLOR2_OFFSET		(7*4)
 #define DRAWVERT_TANGENT0_OFFSET	(8*4)
 #define DRAWVERT_TANGENT1_OFFSET	(11*4)
-#define DRAWVERT_COLOR_OFFSET		(14*4)
+#define DRAWVERT_ST_OFFSET			(14*4)
 
 #define SHUFFLEPS( x, y, z, w )		(( (x) & 3 ) << 6 | ( (y) & 3 ) << 4 | ( (z) & 3 ) << 2 | ( (w) & 3 ))
 #define R_SHUFFLEPS( x, y, z, w )	(( (w) & 3 ) << 6 | ( (z) & 3 ) << 4 | ( (y) & 3 ) << 2 | ( (x) & 3 ))
@@ -997,13 +1001,17 @@ void VPCALL idSIMD_SSE::Dot( float *dst, const idVec3 &constant, const idPlane *
 				KALUDSS4( ALUOP, [edi+ebx],[edx+ebx],[esi+ebx] ), COUNT )
 
 
-#define DRAWVERT_SIZE				60
+// RAVEN/Q4 idDrawVert is 64 bytes (xyz,color,normal,color2,tangents[2],st). These SSE
+// routines' AOS->SOA shuffles still assume the OLD field adjacency, so we run with
+// com_forceGenericSIMD 1 until they're rewritten; the size below keeps asserts valid.
+#define DRAWVERT_SIZE				64
 #define DRAWVERT_XYZ_OFFSET			(0*4)
-#define DRAWVERT_ST_OFFSET			(3*4)
-#define DRAWVERT_NORMAL_OFFSET		(5*4)
+#define DRAWVERT_COLOR_OFFSET		(3*4)
+#define DRAWVERT_NORMAL_OFFSET		(4*4)
+#define DRAWVERT_COLOR2_OFFSET		(7*4)
 #define DRAWVERT_TANGENT0_OFFSET	(8*4)
 #define DRAWVERT_TANGENT1_OFFSET	(11*4)
-#define DRAWVERT_COLOR_OFFSET		(14*4)
+#define DRAWVERT_ST_OFFSET			(14*4)
 
 #define JOINTQUAT_SIZE				(7*4)
 #define JOINTMAT_SIZE				(4*3*4)

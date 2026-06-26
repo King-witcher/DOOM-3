@@ -37,20 +37,38 @@ If you have questions concerning this license or the applicable additional terms
 ===============================================================================
 */
 
+// RAVEN/Q4: the retail game DLL passes idDrawVert across the engine<->game boundary
+// (patch control points, model geometry). Quake 4 1.4.2 REORDERED the fields and added
+// a second color, growing the struct from D3's 60 bytes to 64. Match the v37 layout
+// EXACTLY -- otherwise idList<idDrawVert> strides wrong and st/normal/color read at the
+// wrong offsets (this was the slow/garbage collision build for patch primitives).
+//   layout: xyz(0) color(12) normal(16) color2(28) tangents[2](32) st(56)  size 64
 class idDrawVert {
 public:
 	idVec3			xyz;
-	idVec2			st;
-	idVec3			normal;
-	idVec3			tangents[2];
 	byte			color[4];
-#if 0 // was MACOS_X see comments concerning DRAWVERT_PADDED in Simd_Altivec.h 
-	float			padding;
-#endif
+	idVec3			normal;
+	byte			color2[4];
+	idVec3			tangents[2];
+	idVec2			st;
+
 	float			operator[]( const int index ) const;
 	float &			operator[]( const int index );
 
 	void			Clear( void );
+
+	const idVec3 &	GetNormal( void ) const;
+	void			SetNormal( float x, float y, float z );
+	void			SetNormal( const idVec3 &n );
+
+	const idVec3 &	GetTangent( void ) const;
+	void			SetTangent( float x, float y, float z );
+	void			SetTangent( const idVec3 &t );
+
+	const idVec3 & 	GetBiTangent( void ) const;
+	void			SetBiTangent( float x, float y, float z );
+	void			SetBiTangent( const idVec3 &t );
+	void			SetBiTangentSign( float sign );
 
 	void			Lerp( const idDrawVert &a, const idDrawVert &b, const float f );
 	void			LerpAll( const idDrawVert &a, const idDrawVert &b, const float f );
@@ -78,6 +96,17 @@ ID_INLINE void idDrawVert::Clear( void ) {
 	tangents[1].Zero();
 	color[0] = color[1] = color[2] = color[3] = 0;
 }
+
+ID_INLINE const idVec3 &idDrawVert::GetNormal( void ) const { return normal; }
+ID_INLINE void idDrawVert::SetNormal( const idVec3 &n ) { normal = n; }
+ID_INLINE void idDrawVert::SetNormal( float x, float y, float z ) { normal.Set( x, y, z ); }
+ID_INLINE const idVec3 &idDrawVert::GetTangent( void ) const { return tangents[0]; }
+ID_INLINE void idDrawVert::SetTangent( float x, float y, float z ) { tangents[0].Set( x, y, z ); }
+ID_INLINE void idDrawVert::SetTangent( const idVec3 &t ) { tangents[0] = t; }
+ID_INLINE const idVec3 &idDrawVert::GetBiTangent( void ) const { return tangents[1]; }
+ID_INLINE void idDrawVert::SetBiTangent( float x, float y, float z ) { tangents[1].Set( x, y, z ); }
+ID_INLINE void idDrawVert::SetBiTangent( const idVec3 &t ) { tangents[1] = t; }
+ID_INLINE void idDrawVert::SetBiTangentSign( float sign ) { }
 
 ID_INLINE void idDrawVert::Lerp( const idDrawVert &a, const idDrawVert &b, const float f ) {
 	xyz = a.xyz + f * ( b.xyz - a.xyz );

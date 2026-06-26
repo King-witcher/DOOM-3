@@ -222,13 +222,15 @@ const char * idSIMD_SSE3::GetName( void ) const {
 	_asm _emit ( ( dst & 7 ) << 3 ) | src
 
 
-#define DRAWVERT_SIZE				60
+// RAVEN/Q4 idDrawVert is 64 bytes; SSE3 shuffles assume old adjacency -> run generic.
+#define DRAWVERT_SIZE				64
 #define DRAWVERT_XYZ_OFFSET			(0*4)
-#define DRAWVERT_ST_OFFSET			(3*4)
-#define DRAWVERT_NORMAL_OFFSET		(5*4)
+#define DRAWVERT_COLOR_OFFSET		(3*4)
+#define DRAWVERT_NORMAL_OFFSET		(4*4)
+#define DRAWVERT_COLOR2_OFFSET		(7*4)
 #define DRAWVERT_TANGENT0_OFFSET	(8*4)
 #define DRAWVERT_TANGENT1_OFFSET	(11*4)
-#define DRAWVERT_COLOR_OFFSET		(14*4)
+#define DRAWVERT_ST_OFFSET			(14*4)
 
 #define JOINTQUAT_SIZE				(7*4)
 #define JOINTMAT_SIZE				(4*3*4)

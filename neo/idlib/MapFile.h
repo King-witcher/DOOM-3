@@ -109,7 +109,10 @@ public:
 	unsigned int			GetGeometryCRC( void ) const;
 
 protected:
-	int						numSides;
+	// RAVEN/Q4: the retail idMapBrush the game hands us has NO numSides field -- it
+	// was unused here (GetNumSides returns sides.Num()) and keeping it shifted `sides`
+	// by 4 bytes, so our LoadMap/ConvertBrush read the game's brush at the wrong
+	// offset (the 0xFF0A0A0A text-as-pointer fault). Drop it to match the v37 layout.
 	idList<idMapBrushSide*> sides;
 };
 

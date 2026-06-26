@@ -1429,14 +1429,18 @@ static void Q4_LogFault( EXCEPTION_POINTERS *ep ) {
 		ctx->Eax, ctx->Ecx, ctx->Edx, ctx->Ebx, ctx->Esi, ctx->Edi, ctx->Ebp, ctx->Esp );
 	// walk the stack: the call that jumped to a null fn-ptr pushed its return address at [esp];
 	// log every executable address we find => a pseudo call-stack pinpointing the caller
+	// /Oy omits frame pointers, so scan deep and keep only DOOM3.exe / gamex86 return
+	// addresses (the real call chain) -- DOOM3.exe RVAs get resolved offline via the .map
 	void **esp = (void **)ctx->Esp;
 	int logged = 0;
-	for ( int i = 0; i < 160 && logged < 20; i++ ) {
+	for ( int i = 0; i < 2048 && logged < 48; i++ ) {
 		if ( IsBadReadPtr( esp + i, sizeof( void * ) ) ) break;
 		if ( Q4_IsExecAddr( esp[i] ) ) {
-			Q4_Sym( esp[i], sym, sizeof( sym ) );
-			fprintf( f, "  stk[%03d]=%s\n", i, sym );
-			logged++;
+			Q4_Resolve( esp[i], sym, sizeof( sym ) );
+			if ( strstr( sym, "DOOM3.exe" ) || strstr( sym, "gamex86" ) ) {
+				fprintf( f, "  stk[%04d]=%s\n", i, sym );
+				logged++;
+			}
 		}
 	}
 	fprintf( f, "----\n" );

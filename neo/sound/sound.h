@@ -297,12 +297,14 @@ class rvCommonSample;
 // The VIRTUAL part of this class MUST match the Quake 4 1.4.2 SDK idSoundSystem
 // (q4/sound/sound.h) under the prebuilt gamex86.dll configuration:
 //   Q4SDK_MD5R defined; _RV_MEM_SYS_SUPPORT / _XENON / _CONSOLE undefined; and
-//   _USE_OPENAL UNDEFINED (so IsEAXAvailable/GetDeviceName/GetDefaultDeviceName
-//   are NOT vtable slots).
-// The D3 idSoundWorld facade (AllocSoundWorld / SetPlayingSoundWorld /
-// GetPlayingSoundWorld) and IsEAXAvailable are kept as NON-VIRTUAL helpers at
-// the bottom so existing engine call sites still compile without adding vtable
-// slots the retail game DLL does not expect.
+//   _USE_OPENAL DEFINED -- the retail PC build ships OpenAL, so IsEAXAvailable /
+//   GetDeviceName / GetDefaultDeviceName ARE real vtable slots (right after
+//   PrintMemInfo). Verified by disassembling the retail MapShutdown:
+//   soundSystem->ResetListener() is called at vtable index 32 (= +3 from the
+//   non-OpenAL layout); omitting the trio mis-routed every later slot by 3.
+// Only the D3 idSoundWorld facade (AllocSoundWorld / SetPlayingSoundWorld /
+// GetPlayingSoundWorld) is kept as NON-VIRTUAL helpers at the bottom so existing
+// engine call sites still compile without adding slots the retail DLL never calls.
 //
 class idSoundSystem {
 public:
@@ -364,6 +366,13 @@ public:
 
 	// prints memory info
 	virtual void			PrintMemInfo( MemInfo_t *mi ) = 0;
+
+	// RAVEN/Q4 (_USE_OPENAL): EAX / audio-device queries -- real vtable slots in the
+	// retail build (see the class comment above). Inserting them here puts every
+	// following slot (ResetListener at index 32, ...) at the retail offset.
+	virtual int				IsEAXAvailable( void ) = 0;
+	virtual const char *	GetDeviceName( int index ) = 0;
+	virtual const char *	GetDefaultDeviceName( void ) = 0;
 
 	// SoundWorld stuff
 
@@ -468,9 +477,6 @@ public:
 	// some tools, like the sound dialog, may be used in both the game and the editor
 	// This can return NULL, so check!
 	idSoundWorld *			GetPlayingSoundWorld( void );
-
-	// is EAX support present - -1: disabled at compile time, 0: no suitable hardware, 1: ok, 2: failed to load OpenAL DLL
-	int						IsEAXAvailable( void );
 };
 
 extern idSoundSystem	*soundSystem;

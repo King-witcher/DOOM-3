@@ -1961,6 +1961,12 @@ idSoundWorld *idSoundSystem::GetPlayingSoundWorld( void ) {
 	return static_cast<idSoundSystemLocal *>( this )->GetPlayingSoundWorld();
 }
 
-int idSoundSystem::IsEAXAvailable( void ) {
-	return static_cast<idSoundSystemLocal *>( this )->IsEAXAvailable();
+// RAVEN/Q4 (_USE_OPENAL): real vtable slots now; device enumeration is stubbed (the
+// D3 sound backend has no OpenAL device list) -- only used by the sound options menu.
+const char *idSoundSystemLocal::GetDeviceName( int index ) {
+	return "";
+}
+
+const char *idSoundSystemLocal::GetDefaultDeviceName( void ) {
+	return "";
 }

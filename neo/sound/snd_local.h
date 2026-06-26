@@ -771,6 +771,8 @@ public:
 	idSoundWorld			*GetPlayingSoundWorld( void );
 
 	int						IsEAXAvailable( void );
+	const char *			GetDeviceName( int index );
+	const char *			GetDefaultDeviceName( void );
 
 	//-------------------------
 

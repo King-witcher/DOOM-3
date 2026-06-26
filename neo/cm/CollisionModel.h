@@ -2,9 +2,9 @@
 ===========================================================================
 
 Doom 3 GPL Source Code
-Copyright (C) 1999-2011 id Software LLC, a ZeniMax Media company. 
+Copyright (C) 1999-2011 id Software LLC, a ZeniMax Media company.
 
-This file is part of the Doom 3 GPL Source Code (?Doom 3 Source Code?).  
+This file is part of the Doom 3 GPL Source Code (?Doom 3 Source Code?).
 
 Doom 3 Source Code is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -48,6 +48,12 @@ If you have questions concerning this license or the applicable additional terms
 ===============================================================================
 */
 
+// RAVEN BEGIN
+// jscott: for material type code (Quake 4 ABI). Forward-declared here so the
+// contactInfo_t layout below matches the retail gamex86.dll exactly.
+class rvDeclMatType;
+// RAVEN END
+
 // contact type
 typedef enum {
 	CONTACT_NONE,							// no contact
@@ -62,12 +68,17 @@ typedef struct {
 	idVec3					point;			// point of contact
 	idVec3					normal;			// contact plane normal
 	float					dist;			// contact plane distance
+	float					separation;		// contact feature separation at initial position
 	int						contents;		// contents at other side of surface
 	const idMaterial *		material;		// surface material
 	int						modelFeature;	// contact feature on model
 	int						trmFeature;		// contact feature on trace model
 	int						entityNum;		// entity the contact surface is a part of
 	int						id;				// id of clip model the contact surface is part of
+// RAVEN BEGIN
+// jscott: for material type code
+	const rvDeclMatType		*materialType;	// material type of texture (possibly indirected though a hit map)
+// RAVEN END
 } contactInfo_t;
 
 // trace result
@@ -80,67 +91,93 @@ typedef struct trace_s {
 
 typedef int cmHandle_t;
 
+#define WORLD_MODEL_NAME	"worldMap"		// name of world model
 #define CM_CLIP_EPSILON		0.25f			// always stay this distance away from any model
 #define CM_BOX_EPSILON		1.0f			// should always be larger than clip epsilon
 #define CM_MAX_TRACE_DIST	4096.0f			// maximum distance a trace model may be traced, point traces are unlimited
 
+// collision model
+class idCollisionModel {
+public:
+	virtual						~idCollisionModel() { }
+								// Returns the name of the model.
+	virtual const char *		GetName( void ) const = 0;
+								// Gets the bounds of the model.
+	virtual bool				GetBounds( idBounds &bounds ) const = 0;
+								// Gets all contents flags of brushes and polygons of the model ored together.
+	virtual bool				GetContents( int &contents ) const = 0;
+								// Gets a vertex of the model.
+	virtual bool				GetVertex( int vertexNum, idVec3 &vertex ) const = 0;
+								// Gets an edge of the model.
+	virtual bool				GetEdge( int edgeNum, idVec3 &start, idVec3 &end ) const = 0;
+								// Gets a polygon of the model.
+	virtual bool				GetPolygon( int polygonNum, idFixedWinding &winding ) const = 0;
+};
+
+// collision model manager
 class idCollisionModelManager {
 public:
-	virtual					~idCollisionModelManager( void ) {}
+	virtual						~idCollisionModelManager( void ) {}
 
-	// Loads collision models from a map file.
-	virtual void			LoadMap( const idMapFile *mapFile ) = 0;
-	// Frees all the collision models.
-	virtual void			FreeMap( void ) = 0;
+	virtual void				Init( void ) = 0;
+	virtual void				Shutdown( void ) = 0;
 
-	// Gets the clip handle for a model.
-	virtual cmHandle_t		LoadModel( const char *modelName, const bool precache ) = 0;
-	// Sets up a trace model for collision with other trace models.
-	virtual cmHandle_t		SetupTrmModel( const idTraceModel &trm, const idMaterial *material ) = 0;
-	// Creates a trace model from a collision model, returns true if succesfull.
-	virtual bool			TrmFromModel( const char *modelName, idTraceModel &trm ) = 0;
+								// Loads collision models from a map file.
+	virtual void				LoadMap( const idMapFile *mapFile, bool forceReload ) = 0;
+								// Frees all the collision models for the given map.
+	virtual void				FreeMap( const char *mapName ) = 0;
 
-	// Gets the name of a model.
-	virtual const char *	GetModelName( cmHandle_t model ) const = 0;
-	// Gets the bounds of a model.
-	virtual bool			GetModelBounds( cmHandle_t model, idBounds &bounds ) const = 0;
-	// Gets all contents flags of brushes and polygons of a model ored together.
-	virtual bool			GetModelContents( cmHandle_t model, int &contents ) const = 0;
-	// Gets a vertex of a model.
-	virtual bool			GetModelVertex( cmHandle_t model, int vertexNum, idVec3 &vertex ) const = 0;
-	// Gets an edge of a model.
-	virtual bool			GetModelEdge( cmHandle_t model, int edgeNum, idVec3 &start, idVec3 &end ) const = 0;
-	// Gets a polygon of a model.
-	virtual bool			GetModelPolygon( cmHandle_t model, int polygonNum, idFixedWinding &winding ) const = 0;
+								// Loads a collision model.
+	virtual idCollisionModel *	LoadModel( const char *mapName, const char *modelName ) = 0;
+// RAVEN BEGIN
+// mwhitlock: conversion from idRenderModel to MD5R fixes (to keep redundant collision surfaces out of the MD5R files).
+	virtual idCollisionModel *	ExtractCollisionModel( idRenderModel *renderModel, const char *modelName ) = 0;
+// RAVEN END
+								// Precaches a collision model.
+	virtual void				PreCacheModel( const char *mapName, const char *modelName ) = 0;
+								// Free the given model.
+	virtual void				FreeModel( idCollisionModel *model ) = 0;
+								// Purge all unused models.
+	virtual void				PurgeModels( void ) = 0;
 
-	// Translates a trace model and reports the first collision if any.
-	virtual void			Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
-								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
-								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
-	// Rotates a trace model and reports the first collision if any.
-	virtual void			Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
-								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
-								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
-	// Returns the contents touched by the trace model or 0 if the trace model is in free space.
-	virtual int				Contents( const idVec3 &start,
-								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
-								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
-	// Stores all contact points of the trace model with the model, returns the number of contacts.
-	virtual int				Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
-								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
-								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+								// Sets up a trace model for collision with other trace models.
+	virtual idCollisionModel *	ModelFromTrm( const char *mapName, const char *modelName, const idTraceModel &trm, const idMaterial *material ) = 0;
+								// Creates a trace model from a collision model, returns true if succesfull.
+	virtual bool				TrmFromModel( const char *mapName, const char *modelName, idTraceModel &trm ) = 0;
+								// Creates a trace model for each primitive of the collision model, returns the number of trace models.
+	virtual int					CompoundTrmFromModel( const char *mapName, const char *modelName, idTraceModel *trms, int maxTrms ) = 0;
 
-	// Tests collision detection.
-	virtual void			DebugOutput( const idVec3 &origin ) = 0;
-	// Draws a model.
-	virtual void			DrawModel( cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis,
-												const idVec3 &viewOrigin, const float radius ) = 0;
-	// Prints model information, use -1 handle for accumulated model info.
-	virtual void			ModelInfo( cmHandle_t model ) = 0;
-	// Lists all loaded models.
-	virtual void			ListModels( void ) = 0;
-	// Writes a collision model file for the given map entity.
-	virtual bool			WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true ) = 0;
+								// Translates a trace model and reports the first collision if any.
+	virtual void				Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+								// Rotates a trace model and reports the first collision if any.
+	virtual void				Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+								// Returns the contents touched by the trace model or 0 if the trace model is in free space.
+	virtual int					Contents( const idVec3 &start,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+								// Stores all contact points of the trace model with the model, returns the number of contacts.
+	virtual int					Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) = 0;
+
+								// Tests collision detection.
+	virtual void				DebugOutput( const idVec3 &viewOrigin, const idMat3 &viewAxis ) = 0;
+								// Draws a model.
+	virtual void				DrawModel( idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis,
+												const idVec3 &viewOrigin, const idMat3 &viewAxis, const float radius ) = 0;
+								// Lists all loaded models.
+	virtual void				ListModels( void ) = 0;
+								// Prints model information, use -1 for accumulated model info.
+	virtual void				ModelInfo( int num ) = 0;
+	virtual void				PrintMemInfo( MemInfo_t *mi ) = 0;
+	virtual bool				IsLoaded( void ) = 0;
+
+								// Writes a collision model file for the given map entity.
+	virtual bool				WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true ) = 0;
 };
 
 extern idCollisionModelManager *		collisionModelManager;

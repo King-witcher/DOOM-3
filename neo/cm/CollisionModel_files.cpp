@@ -265,7 +265,7 @@ void idCollisionModelManagerLocal::WriteCollisionModelsToFile( const char *filen
 idCollisionModelManagerLocal::WriteCollisionModelForMapEntity
 ================
 */
-bool idCollisionModelManagerLocal::WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel ) {
+bool idCollisionModelManagerLocal::WriteCollisionModelForMapEntity_h( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel ) {
 	idFile *fp;
 	idStr name;
 	cm_model_t *model;

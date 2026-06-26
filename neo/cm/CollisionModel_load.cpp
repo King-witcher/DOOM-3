@@ -404,7 +404,7 @@ void idCollisionModelManagerLocal::FreeModel( cm_model_t *model ) {
 idCollisionModelManagerLocal::FreeMap
 ================
 */
-void idCollisionModelManagerLocal::FreeMap( void ) {
+void idCollisionModelManagerLocal::FreeMap_h( void ) {
 	int i;
 
 	if ( !loaded ) {
@@ -3242,7 +3242,7 @@ void idCollisionModelManagerLocal::AccumulateModelInfo( cm_model_t *model ) {
 idCollisionModelManagerLocal::ModelInfo
 ================
 */
-void idCollisionModelManagerLocal::ModelInfo( cmHandle_t model ) {
+void idCollisionModelManagerLocal::ModelInfo_h( cmHandle_t model ) {
 	cm_model_t modelInfo;
 
 	if ( model == -1 ) {
@@ -3267,7 +3267,7 @@ void idCollisionModelManagerLocal::ModelInfo( cmHandle_t model ) {
 idCollisionModelManagerLocal::ListModels
 ================
 */
-void idCollisionModelManagerLocal::ListModels( void ) {
+void idCollisionModelManagerLocal::ListModels_h( void ) {
 	int i, totalMemory;
 
 	totalMemory = 0;
@@ -3338,7 +3338,7 @@ void idCollisionModelManagerLocal::BuildModels( const idMapFile *mapFile ) {
 idCollisionModelManagerLocal::LoadMap
 ================
 */
-void idCollisionModelManagerLocal::LoadMap( const idMapFile *mapFile ) {
+void idCollisionModelManagerLocal::LoadMap_h( const idMapFile *mapFile ) {
 
 	if ( mapFile == NULL ) {
 		common->Error( "idCollisionModelManagerLocal::LoadMap: NULL mapFile" );
@@ -3353,7 +3353,7 @@ void idCollisionModelManagerLocal::LoadMap( const idMapFile *mapFile ) {
 			}
 			common->DPrintf( "Reloading modified map\n" );
 		}
-		FreeMap();
+		FreeMap_h();
 	}
 
 	// clear the collision map
@@ -3387,7 +3387,7 @@ void idCollisionModelManagerLocal::LoadMap( const idMapFile *mapFile ) {
 idCollisionModelManagerLocal::GetModelName
 ===================
 */
-const char *idCollisionModelManagerLocal::GetModelName( cmHandle_t model ) const {
+const char *idCollisionModelManagerLocal::GetModelName_h( cmHandle_t model ) const {
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelBounds: invalid model handle\n" );
 		return "";
@@ -3400,7 +3400,7 @@ const char *idCollisionModelManagerLocal::GetModelName( cmHandle_t model ) const
 idCollisionModelManagerLocal::GetModelBounds
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelBounds( cmHandle_t model, idBounds &bounds ) const {
+bool idCollisionModelManagerLocal::GetModelBounds_h( cmHandle_t model, idBounds &bounds ) const {
 
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelBounds: invalid model handle\n" );
@@ -3416,7 +3416,7 @@ bool idCollisionModelManagerLocal::GetModelBounds( cmHandle_t model, idBounds &b
 idCollisionModelManagerLocal::GetModelContents
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelContents( cmHandle_t model, int &contents ) const {
+bool idCollisionModelManagerLocal::GetModelContents_h( cmHandle_t model, int &contents ) const {
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelContents: invalid model handle\n" );
 		return false;
@@ -3432,7 +3432,7 @@ bool idCollisionModelManagerLocal::GetModelContents( cmHandle_t model, int &cont
 idCollisionModelManagerLocal::GetModelVertex
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelVertex( cmHandle_t model, int vertexNum, idVec3 &vertex ) const {
+bool idCollisionModelManagerLocal::GetModelVertex_h( cmHandle_t model, int vertexNum, idVec3 &vertex ) const {
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelVertex: invalid model handle\n" );
 		return false;
@@ -3453,7 +3453,7 @@ bool idCollisionModelManagerLocal::GetModelVertex( cmHandle_t model, int vertexN
 idCollisionModelManagerLocal::GetModelEdge
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelEdge( cmHandle_t model, int edgeNum, idVec3 &start, idVec3 &end ) const {
+bool idCollisionModelManagerLocal::GetModelEdge_h( cmHandle_t model, int edgeNum, idVec3 &start, idVec3 &end ) const {
 	if ( model < 0 || model > MAX_SUBMODELS || model >= numModels || !models[model] ) {
 		common->Printf( "idCollisionModelManagerLocal::GetModelEdge: invalid model handle\n" );
 		return false;
@@ -3476,7 +3476,7 @@ bool idCollisionModelManagerLocal::GetModelEdge( cmHandle_t model, int edgeNum, 
 idCollisionModelManagerLocal::GetModelPolygon
 ===================
 */
-bool idCollisionModelManagerLocal::GetModelPolygon( cmHandle_t model, int polygonNum, idFixedWinding &winding ) const {
+bool idCollisionModelManagerLocal::GetModelPolygon_h( cmHandle_t model, int polygonNum, idFixedWinding &winding ) const {
 	int i, edgeNum;
 	cm_polygon_t *poly;
 
@@ -3500,7 +3500,7 @@ bool idCollisionModelManagerLocal::GetModelPolygon( cmHandle_t model, int polygo
 idCollisionModelManagerLocal::LoadModel
 ==================
 */
-cmHandle_t idCollisionModelManagerLocal::LoadModel( const char *modelName, const bool precache ) {
+cmHandle_t idCollisionModelManagerLocal::LoadModel_h( const char *modelName, const bool precache ) {
 	int handle;
 
 	handle = FindModel( modelName );
@@ -3680,14 +3680,180 @@ bool idCollisionModelManagerLocal::TrmFromModel( const cm_model_t *model, idTrac
 idCollisionModelManagerLocal::TrmFromModel
 ==================
 */
-bool idCollisionModelManagerLocal::TrmFromModel( const char *modelName, idTraceModel &trm ) {
+bool idCollisionModelManagerLocal::TrmFromModel_h( const char *modelName, idTraceModel &trm ) {
 	cmHandle_t handle;
 
-	handle = LoadModel( modelName, false );
+	handle = LoadModel_h( modelName, false );
 	if ( !handle ) {
 		common->Printf( "idCollisionModelManagerLocal::TrmFromModel: model %s not found.\n", modelName );
 		return false;
 	}
 
 	return TrmFromModel( models[ handle ], trm );
+}
+
+/*
+===============================================================================
+
+	Quake 4 idCollisionModel / idCollisionModelManager ABI adapters.
+
+	The retail gamex86.dll talks to the engine through the Quake 4 interface
+	(idCollisionModel* handed around as opaque pointers, LoadMap with a
+	forceReload flag, view-axis aware debug draw, ...). The real collision
+	algorithms below are the original Doom 3 handle-based ones (the *_h
+	helpers); everything here is a thin translation layer so the engine
+	exposes a vtable that matches Quake 4 exactly.
+
+===============================================================================
+*/
+
+/*
+================
+idCollisionModelManagerLocal::idCollisionModelManagerLocal
+================
+*/
+idCollisionModelManagerLocal::idCollisionModelManagerLocal( void ) {
+	// give every possible handle its fixed idCollisionModel wrapper
+	for ( int i = 0; i < MAX_SUBMODELS; i++ ) {
+		modelWrappers[i].handle = i;
+	}
+}
+
+// --- cmModel_i: forward each getter to the manager's handle-based getter ---
+
+const char *cmModel_i::GetName( void ) const {
+	return collisionModelManagerLocal.GetModelName_h( handle );
+}
+
+bool cmModel_i::GetBounds( idBounds &bounds ) const {
+	return collisionModelManagerLocal.GetModelBounds_h( handle, bounds );
+}
+
+bool cmModel_i::GetContents( int &contents ) const {
+	return collisionModelManagerLocal.GetModelContents_h( handle, contents );
+}
+
+bool cmModel_i::GetVertex( int vertexNum, idVec3 &vertex ) const {
+	return collisionModelManagerLocal.GetModelVertex_h( handle, vertexNum, vertex );
+}
+
+bool cmModel_i::GetEdge( int edgeNum, idVec3 &start, idVec3 &end ) const {
+	return collisionModelManagerLocal.GetModelEdge_h( handle, edgeNum, start, end );
+}
+
+bool cmModel_i::GetPolygon( int polygonNum, idFixedWinding &winding ) const {
+	return collisionModelManagerLocal.GetModelPolygon_h( handle, polygonNum, winding );
+}
+
+// --- idCollisionModelManager (Quake 4 vtable) ---
+
+void idCollisionModelManagerLocal::Init( void ) {
+	// The model array / hash are (re)created lazily by LoadMap_h. Just make
+	// sure the handle wrappers are valid (also done by the constructor).
+	for ( int i = 0; i < MAX_SUBMODELS; i++ ) {
+		modelWrappers[i].handle = i;
+	}
+}
+
+void idCollisionModelManagerLocal::Shutdown( void ) {
+	FreeMap_h();
+}
+
+void idCollisionModelManagerLocal::LoadMap( const idMapFile *mapFile, bool forceReload ) {
+	if ( forceReload ) {
+		FreeMap_h();
+	}
+	LoadMap_h( mapFile );
+}
+
+void idCollisionModelManagerLocal::FreeMap( const char *mapName ) {
+	FreeMap_h();
+}
+
+idCollisionModel *idCollisionModelManagerLocal::LoadModel( const char *mapName, const char *modelName ) {
+	return HandleToModel( LoadModel_h( modelName, false ) );
+}
+
+idCollisionModel *idCollisionModelManagerLocal::ExtractCollisionModel( idRenderModel *renderModel, const char *modelName ) {
+	// No Doom 3 equivalent (Raven MD5R path). Not used on the boot path.
+	return NULL;
+}
+
+void idCollisionModelManagerLocal::PreCacheModel( const char *mapName, const char *modelName ) {
+	LoadModel_h( modelName, true );
+}
+
+void idCollisionModelManagerLocal::FreeModel( idCollisionModel *model ) {
+	// Handle-based models live in the manager's fixed array and are freed with
+	// the map; nothing to release per-model here.
+}
+
+void idCollisionModelManagerLocal::PurgeModels( void ) {
+	// Models are owned by the loaded map; no separate cache to purge.
+}
+
+idCollisionModel *idCollisionModelManagerLocal::ModelFromTrm( const char *mapName, const char *modelName, const idTraceModel &trm, const idMaterial *material ) {
+	return HandleToModel( SetupTrmModel( trm, material ) );
+}
+
+bool idCollisionModelManagerLocal::TrmFromModel( const char *mapName, const char *modelName, idTraceModel &trm ) {
+	return TrmFromModel_h( modelName, trm );
+}
+
+int idCollisionModelManagerLocal::CompoundTrmFromModel( const char *mapName, const char *modelName, idTraceModel *trms, int maxTrms ) {
+	// No Doom 3 equivalent.
+	return 0;
+}
+
+void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	Translation_h( results, start, end, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
+}
+
+void idCollisionModelManagerLocal::Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	Rotation_h( results, start, rotation, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
+}
+
+int idCollisionModelManagerLocal::Contents( const idVec3 &start,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	return Contents_h( start, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
+}
+
+int idCollisionModelManagerLocal::Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
+								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	return Contacts_h( contacts, maxContacts, start, dir, depth, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
+}
+
+void idCollisionModelManagerLocal::DebugOutput( const idVec3 &viewOrigin, const idMat3 &viewAxis ) {
+	DebugOutput_h( viewOrigin );
+}
+
+void idCollisionModelManagerLocal::DrawModel( idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis,
+								const idVec3 &viewOrigin, const idMat3 &viewAxis, const float radius ) {
+	DrawModel_h( ModelToHandle( model ), modelOrigin, modelAxis, viewOrigin, radius );
+}
+
+void idCollisionModelManagerLocal::ListModels( void ) {
+	ListModels_h();
+}
+
+void idCollisionModelManagerLocal::ModelInfo( int num ) {
+	ModelInfo_h( num );
+}
+
+void idCollisionModelManagerLocal::PrintMemInfo( MemInfo_t *mi ) {
+	// Not used on the boot path.
+}
+
+bool idCollisionModelManagerLocal::IsLoaded( void ) {
+	return ( loaded != 0 );
+}
+
+bool idCollisionModelManagerLocal::WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel ) {
+	return WriteCollisionModelForMapEntity_h( mapEnt, filename, testTraceModel );
 }

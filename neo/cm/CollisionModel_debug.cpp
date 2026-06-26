@@ -308,7 +308,7 @@ void idCollisionModelManagerLocal::DrawNodePolygons( cm_model_t *model, cm_node_
 idCollisionModelManagerLocal::DrawModel
 ================
 */
-void idCollisionModelManagerLocal::DrawModel( cmHandle_t handle, const idVec3 &modelOrigin, const idMat3 &modelAxis,
+void idCollisionModelManagerLocal::DrawModel_h( cmHandle_t handle, const idVec3 &modelOrigin, const idMat3 &modelAxis,
 					const idVec3 &viewOrigin, const float radius ) {
 
 	cm_model_t *model;
@@ -364,7 +364,7 @@ static idVec3 *testend;
 
 #include "../sys/sys_public.h"
 
-void idCollisionModelManagerLocal::DebugOutput( const idVec3 &origin ) {
+void idCollisionModelManagerLocal::DebugOutput_h( const idVec3 &origin ) {
 	int i, k, t;
 	char buf[128];
 	idVec3 end;
@@ -425,7 +425,7 @@ void idCollisionModelManagerLocal::DebugOutput( const idVec3 &origin ) {
 	timer.Clear();
 	timer.Start();
 	for ( i = 0; i < cm_testTimes.GetInteger(); i++ ) {
-		Translation( &trace, start, testend[i], &itm, boxAxis, CONTENTS_SOLID|CONTENTS_PLAYERCLIP, cm_testModel.GetInteger(), vec3_origin, modelAxis );
+		Translation_h( &trace, start, testend[i], &itm, boxAxis, CONTENTS_SOLID|CONTENTS_PLAYERCLIP, cm_testModel.GetInteger(), vec3_origin, modelAxis );
 	}
 	timer.Stop();
 	t = timer.Milliseconds();
@@ -467,7 +467,7 @@ void idCollisionModelManagerLocal::DebugOutput( const idVec3 &origin ) {
 		timer.Start();
 		for ( i = 0; i < cm_testTimes.GetInteger(); i++ ) {
 			rotation.SetOrigin( testend[i] );
-			Rotation( &trace, start, rotation, &itm, boxAxis, CONTENTS_SOLID|CONTENTS_PLAYERCLIP, cm_testModel.GetInteger(), vec3_origin, modelAxis );
+			Rotation_h( &trace, start, rotation, &itm, boxAxis, CONTENTS_SOLID|CONTENTS_PLAYERCLIP, cm_testModel.GetInteger(), vec3_origin, modelAxis );
 		}
 		timer.Stop();
 		t = timer.Milliseconds();

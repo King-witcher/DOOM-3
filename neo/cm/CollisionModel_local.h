@@ -290,60 +290,139 @@ typedef struct cm_procNode_s {
 	int children[2];				// negative numbers are (-1 - areaNumber), 0 = solid
 } cm_procNode_t;
 
+/*
+===============================================================================
+
+	idCollisionModel wrapper -- the Quake 4 ABI hands collision models around as
+	idCollisionModel* pointers. Internally we still address models by cmHandle_t,
+	so each handle gets a fixed wrapper object whose getters delegate back to the
+	manager's handle-based implementation. (Defined out-of-line in
+	CollisionModel_load.cpp where the manager singleton is in scope.)
+
+===============================================================================
+*/
+
+class cmModel_i : public idCollisionModel {
+public:
+								cmModel_i( void ) { handle = -1; }
+
+	virtual const char *		GetName( void ) const;
+	virtual bool				GetBounds( idBounds &bounds ) const;
+	virtual bool				GetContents( int &contents ) const;
+	virtual bool				GetVertex( int vertexNum, idVec3 &vertex ) const;
+	virtual bool				GetEdge( int edgeNum, idVec3 &start, idVec3 &end ) const;
+	virtual bool				GetPolygon( int polygonNum, idFixedWinding &winding ) const;
+
+	cmHandle_t					handle;
+};
+
 class idCollisionModelManagerLocal : public idCollisionModelManager {
 public:
+					idCollisionModelManagerLocal( void );
+
+	// ------------------------------------------------------------------
+	// Quake 4 idCollisionModelManager ABI (vtable order MUST match the
+	// retail gamex86.dll exactly). These are thin adapters over the
+	// preserved Doom 3 handle-based algorithms (the *_h helpers below).
+	// ------------------------------------------------------------------
+	virtual void				Init( void );
+	virtual void				Shutdown( void );
+
+	virtual void				LoadMap( const idMapFile *mapFile, bool forceReload );
+	virtual void				FreeMap( const char *mapName );
+
+	virtual idCollisionModel *	LoadModel( const char *mapName, const char *modelName );
+	virtual idCollisionModel *	ExtractCollisionModel( idRenderModel *renderModel, const char *modelName );
+	virtual void				PreCacheModel( const char *mapName, const char *modelName );
+	virtual void				FreeModel( idCollisionModel *model );
+	virtual void				PurgeModels( void );
+
+	virtual idCollisionModel *	ModelFromTrm( const char *mapName, const char *modelName, const idTraceModel &trm, const idMaterial *material );
+	virtual bool				TrmFromModel( const char *mapName, const char *modelName, idTraceModel &trm );
+	virtual int					CompoundTrmFromModel( const char *mapName, const char *modelName, idTraceModel *trms, int maxTrms );
+
+	virtual void				Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	virtual void				Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	virtual int					Contents( const idVec3 &start,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+	virtual int					Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
+									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
+									idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
+
+	virtual void				DebugOutput( const idVec3 &viewOrigin, const idMat3 &viewAxis );
+	virtual void				DrawModel( idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis,
+									const idVec3 &viewOrigin, const idMat3 &viewAxis, const float radius );
+	virtual void				ListModels( void );
+	virtual void				ModelInfo( int num );
+	virtual void				PrintMemInfo( MemInfo_t *mi );
+	virtual bool				IsLoaded( void );
+
+	virtual bool				WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true );
+
+	// ------------------------------------------------------------------
+	// idCollisionModel <-> cmHandle_t bridging
+	// ------------------------------------------------------------------
+	idCollisionModel *	HandleToModel( cmHandle_t h ) { return ( h >= 0 && h < MAX_SUBMODELS ) ? &modelWrappers[h] : NULL; }
+	cmHandle_t			ModelToHandle( idCollisionModel *m ) { return m ? ((cmModel_i *)m)->handle : -1; }
+
+public:				// preserved Doom 3 handle-based algorithms (the real implementation)
 	// load collision models from a map file
-	void			LoadMap( const idMapFile *mapFile );
+	void			LoadMap_h( const idMapFile *mapFile );
 	// frees all the collision models
-	void			FreeMap( void );
+	void			FreeMap_h( void );
 
 	// get clip handle for model
-	cmHandle_t		LoadModel( const char *modelName, const bool precache );
+	cmHandle_t		LoadModel_h( const char *modelName, const bool precache );
 	// sets up a trace model for collision with other trace models
 	cmHandle_t		SetupTrmModel( const idTraceModel &trm, const idMaterial *material );
 	// create trace model from a collision model, returns true if succesfull
-	bool			TrmFromModel( const char *modelName, idTraceModel &trm );
+	bool			TrmFromModel_h( const char *modelName, idTraceModel &trm );
 
 	// name of the model
-	const char *	GetModelName( cmHandle_t model ) const;
+	const char *	GetModelName_h( cmHandle_t model ) const;
 	// bounds of the model
-	bool			GetModelBounds( cmHandle_t model, idBounds &bounds ) const;
+	bool			GetModelBounds_h( cmHandle_t model, idBounds &bounds ) const;
 	// all contents flags of brushes and polygons ored together
-	bool			GetModelContents( cmHandle_t model, int &contents ) const;
+	bool			GetModelContents_h( cmHandle_t model, int &contents ) const;
 	// get the vertex of a model
-	bool			GetModelVertex( cmHandle_t model, int vertexNum, idVec3 &vertex ) const;
+	bool			GetModelVertex_h( cmHandle_t model, int vertexNum, idVec3 &vertex ) const;
 	// get the edge of a model
-	bool			GetModelEdge( cmHandle_t model, int edgeNum, idVec3 &start, idVec3 &end ) const;
+	bool			GetModelEdge_h( cmHandle_t model, int edgeNum, idVec3 &start, idVec3 &end ) const;
 	// get the polygon of a model
-	bool			GetModelPolygon( cmHandle_t model, int polygonNum, idFixedWinding &winding ) const;
+	bool			GetModelPolygon_h( cmHandle_t model, int polygonNum, idFixedWinding &winding ) const;
 
 	// translates a trm and reports the first collision if any
-	void			Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
+	void			Translation_h( trace_t *results, const idVec3 &start, const idVec3 &end,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
 	// rotates a trm and reports the first collision if any
-	void			Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
+	void			Rotation_h( trace_t *results, const idVec3 &start, const idRotation &rotation,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
 	// returns the contents the trm is stuck in or 0 if the trm is in free space
-	int				Contents( const idVec3 &start,
+	int				Contents_h( const idVec3 &start,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
 	// stores all contact points of the trm with the model, returns the number of contacts
-	int				Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
+	int				Contacts_h( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis );
 	// test collision detection
-	void			DebugOutput( const idVec3 &origin );
+	void			DebugOutput_h( const idVec3 &origin );
 	// draw a model
-	void			DrawModel( cmHandle_t model, const idVec3 &origin, const idMat3 &axis,
+	void			DrawModel_h( cmHandle_t model, const idVec3 &origin, const idMat3 &axis,
 											const idVec3 &viewOrigin, const float radius );
 	// print model information, use -1 handle for accumulated model info
-	void			ModelInfo( cmHandle_t model );
+	void			ModelInfo_h( cmHandle_t model );
 	// list all loaded models
-	void			ListModels( void );
+	void			ListModels_h( void );
 	// write a collision model file for the map entity
-	bool			WriteCollisionModelForMapEntity( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true );
+	bool			WriteCollisionModelForMapEntity_h( const idMapEntity *mapEnt, const char *filename, const bool testTraceModel = true );
 
 private:			// CollisionMap_translate.cpp
 	int				TranslateEdgeThroughEdge( idVec3 &cross, idPluecker &l1, idPluecker &l2, float *fraction );
@@ -509,6 +588,8 @@ private:			// collision map data
 	int				maxModels;
 	int				numModels;
 	cm_model_t **	models;
+					// idCollisionModel* wrapper, one per possible handle (see cmModel_i)
+	cmModel_i		modelWrappers[MAX_SUBMODELS];
 					// polygons and brush for trm model
 	cm_polygonRef_t*trmPolygons[MAX_TRACEMODEL_POLYS];
 	cm_brushRef_t *	trmBrushes[1];

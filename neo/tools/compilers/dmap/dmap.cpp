@@ -357,8 +357,8 @@ void Dmap( const idCmdArgs &args ) {
 			// create the collision map
 			start = Sys_Milliseconds();
 
-			collisionModelManager->LoadMap( dmapGlobals.dmapFile );
-			collisionModelManager->FreeMap();
+			collisionModelManager->LoadMap( dmapGlobals.dmapFile, false );
+			collisionModelManager->FreeMap( NULL );
 
 			end = Sys_Milliseconds();
 			common->Printf( "-------------------------------------\n" );

@@ -623,7 +623,7 @@ int idCollisionModelManagerLocal::ContentsTrm( trace_t *results, const idVec3 &s
 idCollisionModelManagerLocal::Contents
 ==================
 */
-int idCollisionModelManagerLocal::Contents( const idVec3 &start,
+int idCollisionModelManagerLocal::Contents_h( const idVec3 &start,
 									const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 									cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
 	trace_t results;

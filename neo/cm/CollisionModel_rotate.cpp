@@ -1614,7 +1614,7 @@ idCollisionModelManagerLocal::Rotation
 static int entered = 0;
 #endif
 
-void idCollisionModelManagerLocal::Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
+void idCollisionModelManagerLocal::Rotation_h( trace_t *results, const idVec3 &start, const idRotation &rotation,
 										const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 										cmHandle_t model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
 	idVec3 tmp;
@@ -1638,7 +1638,7 @@ void idCollisionModelManagerLocal::Rotation( trace_t *results, const idVec3 &sta
 		if ( !entered ) {
 			entered = 1;
 			// if already messed up to begin with
-			if ( idCollisionModelManagerLocal::Contents( start, trm, trmAxis, -1, model, modelOrigin, modelAxis ) & contentMask ) {
+			if ( idCollisionModelManagerLocal::Contents_h( start, trm, trmAxis, -1, model, modelOrigin, modelAxis ) & contentMask ) {
 				startsolid = true;
 			}
 			entered = 0;
@@ -1679,13 +1679,13 @@ void idCollisionModelManagerLocal::Rotation( trace_t *results, const idVec3 &sta
 		if ( !entered ) {
 			entered = 1;
 			// if the trm is stuck in the model
-			if ( idCollisionModelManagerLocal::Contents( results->endpos, trm, results->endAxis, -1, model, modelOrigin, modelAxis ) & contentMask ) {
+			if ( idCollisionModelManagerLocal::Contents_h( results->endpos, trm, results->endAxis, -1, model, modelOrigin, modelAxis ) & contentMask ) {
 				trace_t tr;
 
 				// test where the trm is stuck in the model
-				idCollisionModelManagerLocal::Contents( results->endpos, trm, results->endAxis, -1, model, modelOrigin, modelAxis );
+				idCollisionModelManagerLocal::Contents_h( results->endpos, trm, results->endAxis, -1, model, modelOrigin, modelAxis );
 				// re-run collision detection to find out where it failed
-				idCollisionModelManagerLocal::Rotation( &tr, start, rotation, trm, trmAxis, contentMask, model, modelOrigin, modelAxis );
+				idCollisionModelManagerLocal::Rotation_h( &tr, start, rotation, trm, trmAxis, contentMask, model, modelOrigin, modelAxis );
 			}
 			entered = 0;
 		}

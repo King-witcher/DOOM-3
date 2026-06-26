@@ -329,10 +329,9 @@ void idRenderSystemLocal::SetColor4( float r, float g, float b, float a ) {
 DrawStretchPic
 =============
 */
-void idRenderSystemLocal::DrawStretchPic( const idDrawVert *verts, const glIndex_t *indexes, int vertCount, int indexCount, const idMaterial *material, 
-									   bool clip, float min_x, float min_y, float max_x, float max_y ) {
-	guiModel->DrawStretchPic( verts, indexes, vertCount, indexCount, material,
-		clip, min_x, min_y, max_x, max_y );
+void idRenderSystemLocal::DrawStretchPic( const idDrawVert *verts, const glIndex_t *indexes, int vertCount, int indexCount, const idMaterial *material,
+									   bool clip ) {
+	guiModel->DrawStretchPic( verts, indexes, vertCount, indexCount, material, clip );
 }
 
 /*
@@ -705,7 +704,7 @@ EndFrame
 Returns the number of msec spent in the back end
 =============
 */
-void idRenderSystemLocal::EndFrame( int *frontEndMsec, int *backEndMsec ) {
+void idRenderSystemLocal::EndFrame( int *frontEndMsec, int *backEndMsec, int *numVerts, int *numIndexes ) {
 	emptyCommand_t *cmd;
 
 	if ( !glConfig.isInitialized ) {
@@ -722,6 +721,13 @@ void idRenderSystemLocal::EndFrame( int *frontEndMsec, int *backEndMsec ) {
 	}
 	if ( backEndMsec ) {
 		*backEndMsec = backEnd.pc.msec;
+	}
+	// Q4: vertex/index counts not tracked by the D3 backend
+	if ( numVerts ) {
+		*numVerts = 0;
+	}
+	if ( numIndexes ) {
+		*numIndexes = 0;
 	}
 
 	// print any other statistics and clear all of them

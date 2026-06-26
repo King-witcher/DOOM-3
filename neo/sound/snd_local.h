@@ -679,6 +679,8 @@ public:
 		isInitialized = false;
 	}
 
+	// --- Q4 v37 idSoundSystem vtable (order/signatures MUST match exactly) ---
+
 	// all non-hardware initialization
 	virtual void			Init( void );
 
@@ -687,44 +689,93 @@ public:
 	virtual void			ClearBuffer( void );
 
 	// sound is attached to the window, and must be recreated when the window is changed
-	virtual bool			ShutdownHW( void );
 	virtual bool			InitHW( void );
+	virtual void			InitVoiceComms( void );
+	virtual bool			ShutdownHW( void );
+	virtual void			ShutdownVoiceComms( void );
+
+	virtual void			Frame( void );
+	virtual void			ForegroundUpdate( void );
 
 	// async loop, called at 60Hz
 	virtual int				AsyncUpdate( int time );
-	// async loop, when the sound driver uses a write strategy
-	virtual int				AsyncUpdateWrite( int time );
 	// direct mixing called from the sound driver thread for OSes that support it
 	virtual int				AsyncMix( int soundTime, float *mixBuffer );
+	// async loop, when the sound driver uses a write strategy
+	virtual int				AsyncUpdateWrite( int time );
 
 	virtual void			SetMute( bool mute );
 
 	virtual cinData_t		ImageForTime( const int milliseconds, const bool waveform );
 
-	int						GetSoundDecoderInfo( int index, soundDecoderInfo_t &decoderInfo );
+	virtual int				GetSoundDecoderInfo( int index, soundDecoderInfo_t &decoderInfo );
 
-	// if rw == NULL, no portal occlusion or rendered debugging is available
-	virtual idSoundWorld	*AllocSoundWorld( idRenderWorld *rw );
+	virtual	void			BeginLevelLoad( const char *mapName = NULL );
+	virtual	void			EndLevelLoad( const char *mapName );
 
-	// specifying NULL will cause silence to be played
-	virtual void			SetPlayingSoundWorld( idSoundWorld *soundWorld );
-
-	// some tools, like the sound dialog, may be used in both the game and the editor
-	// This can return NULL, so check!
-	virtual idSoundWorld	*GetPlayingSoundWorld( void );
-
-	virtual	void			BeginLevelLoad( void );
-	virtual	void			EndLevelLoad( const char *mapString );
+	virtual void			CleanCache( void );
 
 	virtual void			PrintMemInfo( MemInfo_t *mi );
 
-	virtual int				IsEAXAvailable( void );
+	virtual void			SetRenderWorld( idRenderWorld *rw );
+	virtual void			StopAllSounds( int worldId );
+	virtual	void			DisableAllSounds( void );
+	virtual int				AllocSoundEmitter( int worldId );
+	virtual void			FreeSoundEmitter( int worldId, int handle, bool immediate );
+	virtual idSoundEmitter *EmitterForIndex( int worldId, int index );
+	virtual int				GetNumEmitters( void ) const;
+	virtual	float			CurrentShakeAmplitudeForPosition( int worldId, const int time, const idVec3 &listenerPosition );
+	virtual	void			PlaceListener( const idVec3 &origin, const idMat3 &axis, const int listenerId, const int gameTime, const idStr &areaName );
+	virtual void			ResetListener( void );
+	virtual void			FadeSoundClasses( int worldId, const int soundClass, float to, const float over );
+	virtual	void			PlayShaderDirectly( int worldId, const char *name, int channel = -1 );
+	virtual void			StartWritingDemo( int worldId, idDemoFile *demo );
+	virtual void			StopWritingDemo( int worldId );
+	virtual void			ProcessDemoCommand( int worldId, idDemoFile *demo );
+	virtual int				GetHardwareTime( void ) const;
+	virtual int				SetActiveSoundWorld( bool on );
+	virtual int				GetActiveSoundWorld( void );
+	virtual void			AVIOpen( int worldId, const char *path, const char *name );
+	virtual void			AVIClose( int worldId );
+	virtual void			WriteToSaveGame( int worldId, idFile *savefile );
+	virtual void			ReadFromSaveGame( int worldId, idFile *savefile );
+	virtual void			ListActiveSounds( int worldId );
+	virtual size_t			ListSoundSummary( void );
+	virtual bool			HasCache( void ) const;
+	virtual rvCommonSample	*FindSample( const idStr &filename );
+	virtual	int				SamplesToMilliseconds( int samples ) const;
+	virtual void *			AllocSoundSample( int size );
+	virtual void			FreeSoundSample( const byte *address );
+	virtual bool			GetInsideLevelLoad( void ) const;
+	virtual	bool			ValidateSoundShader( idSoundShader *shader );
+	virtual	bool			EnableRecording( bool enable, bool test, float &micLevel );
+	virtual int				GetVoiceData( byte *buffer, int maxSize );
+	virtual void			PlayVoiceData( int clientNum, const byte *buffer, int bytes );
+	virtual void			BufferVoiceData( void );
+	virtual void			MixVoiceData( float *finalMixBuffer, int numSpeakers, int newTime );
+	virtual	int				GetCommClientNum( int channel ) const;
+	virtual int				GetNumVoiceChannels( void ) const;
+	virtual	const char		*GetReverbName( int reverb );
+	virtual	int				GetNumAreas( void );
+	virtual	int				GetReverb( int area );
+	virtual	bool			SetReverb( int area, const char *reverbName, const char *fileName );
+	virtual void			EndCinematic( void );
+
+	// --- NON-VIRTUAL D3 helpers backing the idSoundSystem base helpers ---
+
+	// if rw == NULL, no portal occlusion or rendered debugging is available
+	idSoundWorld			*AllocSoundWorld( idRenderWorld *rw );
+	// specifying NULL will cause silence to be played
+	void					SetPlayingSoundWorld( idSoundWorld *soundWorld );
+	// some tools, like the sound dialog, may be used in both the game and the editor
+	idSoundWorld			*GetPlayingSoundWorld( void );
+
+	int						IsEAXAvailable( void );
 
 	//-------------------------
 
 	int						GetCurrent44kHzTime( void ) const;
 	float					dB2Scale( const float val ) const;
-	int						SamplesToMilliseconds( int samples ) const;
 	int						MillisecondsToSamples( int ms ) const;
 
 	void					DoEnviroSuit( float* samples, int numSamples, int numSpeakers );

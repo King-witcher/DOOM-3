@@ -1224,7 +1224,7 @@ Downsample is the number of steps to mipmap the image before saving it
 If ref == NULL, session->updateScreen will be used
 ==================
 */
-void idRenderSystemLocal::TakeScreenshot( int width, int height, const char *fileName, int blends, renderView_t *ref ) {
+void idRenderSystemLocal::TakeScreenshot( int width, int height, const char *fileName, int blends, renderView_t *ref, const char *basePath ) {
 	byte		*buffer;
 	int			i, j, c, temp;
 
@@ -2321,5 +2321,175 @@ idRenderSystemLocal::GetCardCaps
 void idRenderSystemLocal::GetCardCaps( bool &oldCard, bool &nv10or20 ) {
 	nv10or20 = ( tr.backEndRenderer == BE_NV10 || tr.backEndRenderer == BE_NV20 );
 	oldCard = ( tr.backEndRenderer == BE_ARB || tr.backEndRenderer == BE_R200 || tr.backEndRenderer == BE_NV10 || tr.backEndRenderer == BE_NV20 );
+}
+
+// ============================================================================
+// Quake 4 (v37) idRenderSystem additions. Stubs/forwarders sufficient for the
+// retail game DLL ABI; only their vtable presence/order is load-bearing.
+// ============================================================================
+
+/*
+========================
+idRenderSystemLocal::GetValidModes
+========================
+*/
+void idRenderSystemLocal::GetValidModes( idStr &Mode4x3Text, idStr &Mode4x3Values, idStr &Mode16x9Text, idStr &Mode16x9Values,
+										 idStr &Mode16x10Text, idStr &Mode16x10Values ) {
+	Mode4x3Text = "";
+	Mode4x3Values = "";
+	Mode16x9Text = "";
+	Mode16x9Values = "";
+	Mode16x10Text = "";
+	Mode16x10Values = "";
+}
+
+/*
+========================
+idRenderSystemLocal::RemoveAllModelReferences
+========================
+*/
+void idRenderSystemLocal::RemoveAllModelReferences( idRenderModel *model ) {
+}
+
+/*
+========================
+idRenderSystemLocal::ExportMD5R
+========================
+*/
+void idRenderSystemLocal::ExportMD5R( bool compressed ) {
+}
+
+/*
+========================
+idRenderSystemLocal::CopyPrimBatchTriangles
+========================
+*/
+void idRenderSystemLocal::CopyPrimBatchTriangles( idDrawVert *destDrawVerts, glIndex_t *destIndices, void *primBatchMesh, void *silTraceVerts ) {
+}
+
+/*
+========================
+idRenderSystemLocal::TrackTextureUsage
+========================
+*/
+void idRenderSystemLocal::TrackTextureUsage( TextureTrackCommand command, int frametime, const char *name ) {
+}
+
+/*
+========================
+idRenderSystemLocal::DrawStretchCopy
+========================
+*/
+void idRenderSystemLocal::DrawStretchCopy( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material ) {
+	DrawStretchPic( x, y, w, h, s1, t1, s2, t2, material );
+}
+
+/*
+========================
+idRenderSystemLocal::DrawTinyChar
+========================
+*/
+void idRenderSystemLocal::DrawTinyChar( int x, int y, int ch, const idMaterial *material ) {
+	DrawSmallChar( x, y, ch, material );
+}
+
+/*
+========================
+idRenderSystemLocal::DrawTinyStringExt
+========================
+*/
+void idRenderSystemLocal::DrawTinyStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material ) {
+	DrawSmallStringExt( x, y, string, setColor, forceColor, material );
+}
+
+/*
+========================
+idRenderSystemLocal::BeginFrame (viewDef overload)
+========================
+*/
+void idRenderSystemLocal::BeginFrame( struct viewDef_s *viewDef, int windowWidth, int windowHeight ) {
+}
+
+/*
+========================
+idRenderSystemLocal::RenderLightFrustum
+========================
+*/
+void idRenderSystemLocal::RenderLightFrustum( const struct renderLight_s &renderLight, idPlane lightFrustum[6] ) {
+	R_RenderLightFrustum( renderLight, lightFrustum );
+}
+
+/*
+========================
+idRenderSystemLocal::LightProjectionMatrix
+========================
+*/
+void idRenderSystemLocal::LightProjectionMatrix( const idVec3 &origin, const idPlane &rearPlane, idVec4 mat[4] ) {
+	R_LightProjectionMatrix( origin, rearPlane, mat );
+}
+
+/*
+========================
+idRenderSystemLocal::ToggleSmpFrame
+========================
+*/
+void idRenderSystemLocal::ToggleSmpFrame( void ) {
+}
+
+/*
+========================
+idRenderSystemLocal::SetSpecialEffect
+========================
+*/
+void idRenderSystemLocal::SetSpecialEffect( ESpecialEffectType Which, bool Enabled ) {
+}
+
+/*
+========================
+idRenderSystemLocal::SetSpecialEffectParm
+========================
+*/
+void idRenderSystemLocal::SetSpecialEffectParm( ESpecialEffectType Which, int Parm, float Value ) {
+}
+
+/*
+========================
+idRenderSystemLocal::ShutdownSpecialEffects
+========================
+*/
+void idRenderSystemLocal::ShutdownSpecialEffects( void ) {
+	common->Printf( "[Q4trace] renderSystem->ShutdownSpecialEffects() reached (render vtable slot OK)\n" );
+}
+
+/*
+========================
+idRenderSystemLocal::TakeJPGScreenshot
+========================
+*/
+void idRenderSystemLocal::TakeJPGScreenshot( int width, int height, const char *fileName, int blends, struct renderView_s *ref, const char *basePath ) {
+}
+
+/*
+========================
+idRenderSystemLocal::CaptureRenderToMemory
+========================
+*/
+void idRenderSystemLocal::CaptureRenderToMemory( void *buffer ) {
+}
+
+/*
+========================
+idRenderSystemLocal::DebugGraph
+========================
+*/
+void idRenderSystemLocal::DebugGraph( float cur, float min, float max, const idVec4 &color ) {
+}
+
+/*
+========================
+idRenderSystemLocal::ShowDebugGraph
+========================
+*/
+void idRenderSystemLocal::ShowDebugGraph( void ) {
 }
 

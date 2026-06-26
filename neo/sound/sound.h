@@ -279,7 +279,31 @@ typedef struct {
 	int						current44kHzTime;
 } soundDecoderInfo_t;
 
+// RAVEN: Quake 4 sound world ids (sound.h v37). Used by the worldId-keyed API.
+#ifndef SOUNDWORLD_ANY
+#define SOUNDWORLD_ANY		-1
+#define SOUNDWORLD_NONE		0
+#define SOUNDWORLD_GAME		1
+#define SOUNDWORLD_MENU		2
+#define SOUNDWORLD_EDITOR	3
+#define SOUNDWORLD_MAX		4
+#endif
 
+// RAVEN: abstract sample base referenced by FindSample (only the pointer type
+// crosses the DLL boundary for boot-to-menu, so a forward declaration suffices).
+class rvCommonSample;
+
+//
+// The VIRTUAL part of this class MUST match the Quake 4 1.4.2 SDK idSoundSystem
+// (q4/sound/sound.h) under the prebuilt gamex86.dll configuration:
+//   Q4SDK_MD5R defined; _RV_MEM_SYS_SUPPORT / _XENON / _CONSOLE undefined; and
+//   _USE_OPENAL UNDEFINED (so IsEAXAvailable/GetDeviceName/GetDefaultDeviceName
+//   are NOT vtable slots).
+// The D3 idSoundWorld facade (AllocSoundWorld / SetPlayingSoundWorld /
+// GetPlayingSoundWorld) and IsEAXAvailable are kept as NON-VIRTUAL helpers at
+// the bottom so existing engine call sites still compile without adding vtable
+// slots the retail game DLL does not expect.
+//
 class idSoundSystem {
 public:
 	virtual					~idSoundSystem( void ) {}
@@ -297,10 +321,20 @@ public:
 
 	// sound is attached to the window, and must be recreated when the window is changed
 	virtual bool			InitHW( void ) = 0;
+	virtual void			InitVoiceComms( void ) = 0;
 	virtual bool			ShutdownHW( void ) = 0;
+	virtual void			ShutdownVoiceComms( void ) = 0;
+
+	// Called once per common frame to check on changes to the sound system
+	virtual void			Frame( void ) = 0;
+	// Service the sound system
+	virtual void			ForegroundUpdate( void ) = 0;
 
 	// asyn loop, called at 60Hz
 	virtual int				AsyncUpdate( int time ) = 0;
+
+	// direct mixing for OSes that support it
+	virtual int				AsyncMix( int soundTime, float *mixBuffer ) = 0;
 
 	// async loop, when the sound driver uses a write strategy
 	virtual int				AsyncUpdateWrite( int time ) = 0;
@@ -316,33 +350,127 @@ public:
 	// get sound decoder info
 	virtual int				GetSoundDecoderInfo( int index, soundDecoderInfo_t &decoderInfo ) = 0;
 
-	// if rw == NULL, no portal occlusion or rendered debugging is available
-	virtual idSoundWorld *	AllocSoundWorld( idRenderWorld *rw ) = 0;
-
-	// specifying NULL will cause silence to be played
-	virtual void			SetPlayingSoundWorld( idSoundWorld *soundWorld ) = 0;
-
-	// some tools, like the sound dialog, may be used in both the game and the editor
-	// This can return NULL, so check!
-	virtual idSoundWorld *	GetPlayingSoundWorld( void ) = 0;
-
 	// Mark all soundSamples as currently unused,
 	// but don't free anything.
-	virtual	void			BeginLevelLoad( void ) = 0;
+	virtual	void			BeginLevelLoad( const char *mapName = NULL ) = 0;
 
 	// Free all soundSamples marked as unused
 	// We might want to defer the loading of new sounds to this point,
 	// as we do with images, to avoid having a union in memory at one time.
-	virtual	void			EndLevelLoad( const char *mapString ) = 0;
+	virtual	void			EndLevelLoad( const char *mapName ) = 0;
 
-	// direct mixing for OSes that support it
-	virtual int				AsyncMix( int soundTime, float *mixBuffer ) = 0;
+	// Frees the empty base blocks in the appropriate soundCache
+	virtual void			CleanCache( void ) = 0;
 
 	// prints memory info
 	virtual void			PrintMemInfo( MemInfo_t *mi ) = 0;
 
+	// SoundWorld stuff
+
+	// call at each map start
+	virtual void			SetRenderWorld( idRenderWorld *rw ) = 0;
+	virtual void			StopAllSounds( int worldId ) = 0;
+
+	// dissociate all virtual channels from hardware
+	virtual	void			DisableAllSounds( void ) = 0;
+
+	// get a new emitter that can play sounds in this world
+	virtual int				AllocSoundEmitter( int worldId ) = 0;
+	virtual void			FreeSoundEmitter( int worldId, int handle, bool immediate ) = 0;
+
+	// for load games, index 0 will return NULL
+	virtual idSoundEmitter *EmitterForIndex( int worldId, int index ) = 0;
+	virtual int				GetNumEmitters( void ) const = 0;
+
+	// query sound samples from all emitters reaching a given position
+	virtual	float			CurrentShakeAmplitudeForPosition( int worldId, const int time, const idVec3 &listenerPosition ) = 0;
+
+	// where is the camera/microphone
+	virtual	void			PlaceListener( const idVec3 &origin, const idMat3 &axis, const int listenerId, const int gameTime, const idStr &areaName ) = 0;
+
+	// reset the listener portal to invalid during level transitions
+	virtual void			ResetListener( void ) = 0;
+
+	// fade all sounds in the world with a given shader soundClass
+	// to is in Db (sigh), over is in seconds
+	virtual void			FadeSoundClasses( int worldId, const int soundClass, float to, const float over ) = 0;
+
+	// background music
+	virtual	void			PlayShaderDirectly( int worldId, const char *name, int channel = -1 ) = 0;
+
+	// dumps the current state and begins archiving commands
+	virtual void			StartWritingDemo( int worldId, idDemoFile *demo ) = 0;
+	virtual void			StopWritingDemo( int worldId ) = 0;
+
+	// read a sound command from a demo file
+	virtual void			ProcessDemoCommand( int worldId, idDemoFile *demo ) = 0;
+
+	virtual int				GetHardwareTime( void ) const = 0;
+
+	// unpauses the selected soundworld, pauses all others
+	virtual int				SetActiveSoundWorld( bool on ) = 0;
+	virtual int				GetActiveSoundWorld( void ) = 0;
+
+	// Write the sound output to multiple wav files.
+	virtual void			AVIOpen( int worldId, const char *path, const char *name ) = 0;
+	virtual void			AVIClose( int worldId ) = 0;
+
+	// SaveGame / demo Support
+	virtual void			WriteToSaveGame( int worldId, idFile *savefile ) = 0;
+	virtual void			ReadFromSaveGame( int worldId, idFile *savefile ) = 0;
+
+	// rjohnson: added list active sounds
+	virtual void			ListActiveSounds( int worldId ) = 0;
+	// End SoundWorld stuff
+
+	// jscott: added
+	virtual size_t			ListSoundSummary( void ) = 0;
+
+	virtual bool			HasCache( void ) const = 0;
+	virtual rvCommonSample	*FindSample( const idStr &filename ) = 0;
+	virtual	int				SamplesToMilliseconds( int samples ) const = 0;
+	virtual void *			AllocSoundSample( int size ) = 0;
+	virtual void			FreeSoundSample( const byte *address ) = 0;
+
+	virtual bool			GetInsideLevelLoad( void ) const = 0;
+	virtual	bool			ValidateSoundShader( idSoundShader *shader ) = 0;
+
+	// jscott: voice comm support
+	virtual	bool			EnableRecording( bool enable, bool test, float &micLevel ) = 0;
+	virtual int				GetVoiceData( byte *buffer, int maxSize ) = 0;
+	virtual void			PlayVoiceData( int clientNum, const byte *buffer, int bytes ) = 0;
+	virtual void			BufferVoiceData( void ) = 0;
+	virtual void			MixVoiceData( float *finalMixBuffer, int numSpeakers, int newTime ) = 0;
+	// ddynerman: voice comm utility
+	virtual	int				GetCommClientNum( int channel ) const = 0;
+	virtual int				GetNumVoiceChannels( void ) const = 0;
+
+	// jscott: reverb editor support
+	virtual	const char		*GetReverbName( int reverb ) = 0;
+	virtual	int				GetNumAreas( void ) = 0;
+	virtual	int				GetReverb( int area ) = 0;
+	virtual	bool			SetReverb( int area, const char *reverbName, const char *fileName ) = 0;
+
+	virtual void			EndCinematic( void ) = 0;
+
+	// ------------------------------------------------------------------
+	// NON-VIRTUAL D3 helpers (NOT part of the Q4 vtable). Engine-internal
+	// callers use these through the idSoundSystem* global; the retail game
+	// DLL never calls them, so keeping them off the vtable is required.
+	// ------------------------------------------------------------------
+
+	// if rw == NULL, no portal occlusion or rendered debugging is available
+	idSoundWorld *			AllocSoundWorld( idRenderWorld *rw );
+
+	// specifying NULL will cause silence to be played
+	void					SetPlayingSoundWorld( idSoundWorld *soundWorld );
+
+	// some tools, like the sound dialog, may be used in both the game and the editor
+	// This can return NULL, so check!
+	idSoundWorld *			GetPlayingSoundWorld( void );
+
 	// is EAX support present - -1: disabled at compile time, 0: no suitable hardware, 1: ok, 2: failed to load OpenAL DLL
-	virtual int				IsEAXAvailable( void ) = 0;
+	int						IsEAXAvailable( void );
 };
 
 extern idSoundSystem	*soundSystem;

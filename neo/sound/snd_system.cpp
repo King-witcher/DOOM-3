@@ -1123,7 +1123,7 @@ idSoundSystemLocal::BeginLevelLoad
 ===================
 */
 
-void idSoundSystemLocal::BeginLevelLoad() {
+void idSoundSystemLocal::BeginLevelLoad( const char *mapName ) {
 	if ( !isInitialized ) {
 		return;
 	}
@@ -1471,4 +1471,496 @@ int idSoundSystemLocal::IsEAXAvailable( void ) {
 	EAXAvailable = 0;
 	return 0;
 #endif
+}
+
+// ============================================================================
+// Quake 4 (v37) idSoundSystem additions.
+//
+// The retail game DLL drives the sound system through a worldId-keyed API
+// rather than the D3 idSoundWorld* facade. For boot-to-menu we route every
+// worldId-keyed call to the single currently-playing world (the engine only
+// tracks one live world through this path); the remaining Raven methods are
+// trivial stubs. Only the vtable presence/order is load-bearing.
+// ============================================================================
+
+/*
+===================
+idSoundSystemLocal::InitVoiceComms
+===================
+*/
+void idSoundSystemLocal::InitVoiceComms( void ) {
+}
+
+/*
+===================
+idSoundSystemLocal::ShutdownVoiceComms
+===================
+*/
+void idSoundSystemLocal::ShutdownVoiceComms( void ) {
+}
+
+/*
+===================
+idSoundSystemLocal::Frame
+===================
+*/
+void idSoundSystemLocal::Frame( void ) {
+}
+
+/*
+===================
+idSoundSystemLocal::ForegroundUpdate
+===================
+*/
+void idSoundSystemLocal::ForegroundUpdate( void ) {
+}
+
+/*
+===================
+idSoundSystemLocal::CleanCache
+===================
+*/
+void idSoundSystemLocal::CleanCache( void ) {
+}
+
+/*
+===================
+idSoundSystemLocal::SetRenderWorld
+===================
+*/
+void idSoundSystemLocal::SetRenderWorld( idRenderWorld *rw ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->rw = rw;
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::StopAllSounds
+===================
+*/
+void idSoundSystemLocal::StopAllSounds( int worldId ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->StopAllSounds();
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::DisableAllSounds
+===================
+*/
+void idSoundSystemLocal::DisableAllSounds( void ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->StopAllSounds();
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::AllocSoundEmitter
+===================
+*/
+int idSoundSystemLocal::AllocSoundEmitter( int worldId ) {
+	if ( currentSoundWorld ) {
+		idSoundEmitter *emitter = currentSoundWorld->AllocSoundEmitter();
+		if ( emitter ) {
+			return emitter->Index();
+		}
+	}
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::FreeSoundEmitter
+===================
+*/
+void idSoundSystemLocal::FreeSoundEmitter( int worldId, int handle, bool immediate ) {
+	if ( currentSoundWorld && handle > 0 ) {
+		idSoundEmitter *emitter = currentSoundWorld->EmitterForIndex( handle );
+		if ( emitter ) {
+			emitter->Free( immediate );
+		}
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::EmitterForIndex
+===================
+*/
+idSoundEmitter *idSoundSystemLocal::EmitterForIndex( int worldId, int index ) {
+	if ( currentSoundWorld ) {
+		return currentSoundWorld->EmitterForIndex( index );
+	}
+	return NULL;
+}
+
+/*
+===================
+idSoundSystemLocal::GetNumEmitters
+===================
+*/
+int idSoundSystemLocal::GetNumEmitters( void ) const {
+	if ( currentSoundWorld ) {
+		return currentSoundWorld->emitters.Num();
+	}
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::CurrentShakeAmplitudeForPosition
+===================
+*/
+float idSoundSystemLocal::CurrentShakeAmplitudeForPosition( int worldId, const int time, const idVec3 &listenerPosition ) {
+	if ( currentSoundWorld ) {
+		return currentSoundWorld->CurrentShakeAmplitudeForPosition( time, listenerPosition );
+	}
+	return 0.0f;
+}
+
+/*
+===================
+idSoundSystemLocal::PlaceListener
+===================
+*/
+void idSoundSystemLocal::PlaceListener( const idVec3 &origin, const idMat3 &axis, const int listenerId, const int gameTime, const idStr &areaName ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->PlaceListener( origin, axis, listenerId, gameTime, areaName );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::ResetListener
+===================
+*/
+void idSoundSystemLocal::ResetListener( void ) {
+	common->Printf( "[Q4trace] soundSystem->ResetListener() reached (sound vtable slot OK)\n" );
+}
+
+/*
+===================
+idSoundSystemLocal::FadeSoundClasses
+===================
+*/
+void idSoundSystemLocal::FadeSoundClasses( int worldId, const int soundClass, float to, const float over ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->FadeSoundClasses( soundClass, to, over );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::PlayShaderDirectly
+===================
+*/
+void idSoundSystemLocal::PlayShaderDirectly( int worldId, const char *name, int channel ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->PlayShaderDirectly( name, channel );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::StartWritingDemo
+===================
+*/
+void idSoundSystemLocal::StartWritingDemo( int worldId, idDemoFile *demo ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->StartWritingDemo( demo );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::StopWritingDemo
+===================
+*/
+void idSoundSystemLocal::StopWritingDemo( int worldId ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->StopWritingDemo();
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::ProcessDemoCommand
+===================
+*/
+void idSoundSystemLocal::ProcessDemoCommand( int worldId, idDemoFile *demo ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->ProcessDemoCommand( demo );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::GetHardwareTime
+===================
+*/
+int idSoundSystemLocal::GetHardwareTime( void ) const {
+	return CurrentSoundTime;
+}
+
+/*
+===================
+idSoundSystemLocal::SetActiveSoundWorld
+===================
+*/
+int idSoundSystemLocal::SetActiveSoundWorld( bool on ) {
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::GetActiveSoundWorld
+===================
+*/
+int idSoundSystemLocal::GetActiveSoundWorld( void ) {
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::AVIOpen
+===================
+*/
+void idSoundSystemLocal::AVIOpen( int worldId, const char *path, const char *name ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->AVIOpen( path, name );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::AVIClose
+===================
+*/
+void idSoundSystemLocal::AVIClose( int worldId ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->AVIClose();
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::WriteToSaveGame
+===================
+*/
+void idSoundSystemLocal::WriteToSaveGame( int worldId, idFile *savefile ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->WriteToSaveGame( savefile );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::ReadFromSaveGame
+===================
+*/
+void idSoundSystemLocal::ReadFromSaveGame( int worldId, idFile *savefile ) {
+	if ( currentSoundWorld ) {
+		currentSoundWorld->ReadFromSaveGame( savefile );
+	}
+}
+
+/*
+===================
+idSoundSystemLocal::ListActiveSounds
+===================
+*/
+void idSoundSystemLocal::ListActiveSounds( int worldId ) {
+}
+
+/*
+===================
+idSoundSystemLocal::ListSoundSummary
+===================
+*/
+size_t idSoundSystemLocal::ListSoundSummary( void ) {
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::HasCache
+===================
+*/
+bool idSoundSystemLocal::HasCache( void ) const {
+	return ( soundCache != NULL );
+}
+
+/*
+===================
+idSoundSystemLocal::FindSample
+===================
+*/
+rvCommonSample *idSoundSystemLocal::FindSample( const idStr &filename ) {
+	return NULL;
+}
+
+/*
+===================
+idSoundSystemLocal::AllocSoundSample
+===================
+*/
+void *idSoundSystemLocal::AllocSoundSample( int size ) {
+	return NULL;
+}
+
+/*
+===================
+idSoundSystemLocal::FreeSoundSample
+===================
+*/
+void idSoundSystemLocal::FreeSoundSample( const byte *address ) {
+}
+
+/*
+===================
+idSoundSystemLocal::GetInsideLevelLoad
+===================
+*/
+bool idSoundSystemLocal::GetInsideLevelLoad( void ) const {
+	return false;
+}
+
+/*
+===================
+idSoundSystemLocal::ValidateSoundShader
+===================
+*/
+bool idSoundSystemLocal::ValidateSoundShader( idSoundShader *shader ) {
+	return true;
+}
+
+/*
+===================
+idSoundSystemLocal::EnableRecording
+===================
+*/
+bool idSoundSystemLocal::EnableRecording( bool enable, bool test, float &micLevel ) {
+	micLevel = 0.0f;
+	return false;
+}
+
+/*
+===================
+idSoundSystemLocal::GetVoiceData
+===================
+*/
+int idSoundSystemLocal::GetVoiceData( byte *buffer, int maxSize ) {
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::PlayVoiceData
+===================
+*/
+void idSoundSystemLocal::PlayVoiceData( int clientNum, const byte *buffer, int bytes ) {
+}
+
+/*
+===================
+idSoundSystemLocal::BufferVoiceData
+===================
+*/
+void idSoundSystemLocal::BufferVoiceData( void ) {
+}
+
+/*
+===================
+idSoundSystemLocal::MixVoiceData
+===================
+*/
+void idSoundSystemLocal::MixVoiceData( float *finalMixBuffer, int numSpeakers, int newTime ) {
+}
+
+/*
+===================
+idSoundSystemLocal::GetCommClientNum
+===================
+*/
+int idSoundSystemLocal::GetCommClientNum( int channel ) const {
+	return -1;
+}
+
+/*
+===================
+idSoundSystemLocal::GetNumVoiceChannels
+===================
+*/
+int idSoundSystemLocal::GetNumVoiceChannels( void ) const {
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::GetReverbName
+===================
+*/
+const char *idSoundSystemLocal::GetReverbName( int reverb ) {
+	return "";
+}
+
+/*
+===================
+idSoundSystemLocal::GetNumAreas
+===================
+*/
+int idSoundSystemLocal::GetNumAreas( void ) {
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::GetReverb
+===================
+*/
+int idSoundSystemLocal::GetReverb( int area ) {
+	return 0;
+}
+
+/*
+===================
+idSoundSystemLocal::SetReverb
+===================
+*/
+bool idSoundSystemLocal::SetReverb( int area, const char *reverbName, const char *fileName ) {
+	return false;
+}
+
+/*
+===================
+idSoundSystemLocal::EndCinematic
+===================
+*/
+void idSoundSystemLocal::EndCinematic( void ) {
+}
+
+// ============================================================================
+// NON-VIRTUAL idSoundSystem base helpers. Engine-internal callers reach these
+// through the idSoundSystem* global; the single instance is always
+// soundSystemLocal, so we forward to its concrete implementation. These are
+// deliberately NOT vtable slots (the retail game DLL never calls them).
+// ============================================================================
+
+idSoundWorld *idSoundSystem::AllocSoundWorld( idRenderWorld *rw ) {
+	return static_cast<idSoundSystemLocal *>( this )->AllocSoundWorld( rw );
+}
+
+void idSoundSystem::SetPlayingSoundWorld( idSoundWorld *soundWorld ) {
+	static_cast<idSoundSystemLocal *>( this )->SetPlayingSoundWorld( soundWorld );
+}
+
+idSoundWorld *idSoundSystem::GetPlayingSoundWorld( void ) {
+	return static_cast<idSoundSystemLocal *>( this )->GetPlayingSoundWorld();
+}
+
+int idSoundSystem::IsEAXAvailable( void ) {
+	return static_cast<idSoundSystemLocal *>( this )->IsEAXAvailable();
 }

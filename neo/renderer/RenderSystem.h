@@ -157,13 +157,33 @@ const int BIGCHAR_HEIGHT		= 16;
 const int SCREEN_WIDTH			= 640;
 const int SCREEN_HEIGHT			= 480;
 
+// RAVEN: special effect types (Quake 4 1.4.2 SDK renderer/RenderSystem.h)
+typedef enum {
+	SPECIAL_EFFECT_NONE = 0,
+	SPECIAL_EFFECT_BLUR		= 0x00000001,
+	SPECIAL_EFFECT_AL		= 0x00000002,
+	SPECIAL_EFFECT_MAX,
+} ESpecialEffectType;
+
 class idRenderWorld;
+class idRenderModel;
+struct viewDef_s;
+struct renderLight_s;
+struct renderView_s;
 
 
+// The vtable order below MUST match the Quake 4 1.4.2 SDK idRenderSystem
+// (q4/renderer/RenderSystem.h) under the prebuilt gamex86.dll configuration:
+//   Q4SDK_MD5R defined; _RV_MEM_SYS_SUPPORT / _XENON / _CONSOLE /
+//   _MD5R_SUPPORT / _MD5R_WRITE_SUPPORT all undefined.
+// A single missing/extra/misordered slot crashes the retail game DLL.
 class idRenderSystem {
 public:
 
 	virtual					~idRenderSystem() {}
+
+	// nrausch: Init things that touch the render state separately
+	virtual void			DeferredInit( void ) { }
 
 	// set up cvars and basic data structures, but don't
 	// init OpenGL, so it can also be used for dedicated servers
@@ -177,6 +197,8 @@ public:
 	virtual void			ShutdownOpenGL( void ) = 0;
 
 	virtual bool			IsOpenGLRunning( void ) const = 0;
+	virtual void			GetValidModes( idStr &Mode4x3Text, idStr &Mode4x3Values, idStr &Mode16x9Text, idStr &Mode16x9Values,
+										   idStr &Mode16x10Text, idStr &Mode16x10Values ) = 0;
 
 	virtual bool			IsFullScreen( void ) const = 0;
 	virtual int				GetScreenWidth( void ) const = 0;
@@ -186,12 +208,26 @@ public:
 	virtual idRenderWorld *	AllocRenderWorld( void ) = 0;
 	virtual	void			FreeRenderWorld( idRenderWorld * rw ) = 0;
 
+	virtual void			RemoveAllModelReferences( idRenderModel *model ) = 0;
+
 	// All data that will be used in a level should be
 	// registered before rendering any frames to prevent disk hits,
 	// but they can still be registered at a later time
 	// if necessary.
 	virtual void			BeginLevelLoad( void ) = 0;
 	virtual void			EndLevelLoad( void ) = 0;
+
+	// Q4SDK_MD5R branch
+	virtual	void			ExportMD5R( bool compressed ) = 0;
+	virtual void			CopyPrimBatchTriangles( idDrawVert *destDrawVerts, glIndex_t *destIndices, void *primBatchMesh, void *silTraceVerts ) = 0;
+
+	// jnewquist: Track texture usage during cinematics for streaming purposes
+	enum TextureTrackCommand {
+		TEXTURE_TRACK_BEGIN,
+		TEXTURE_TRACK_UPDATE,
+		TEXTURE_TRACK_END
+	};
+	virtual void			TrackTextureUsage( TextureTrackCommand command, int frametime = 0, const char *name = NULL ) = 0;
 
 	// font support
 	virtual bool			RegisterFont( const char *fontName, fontInfoEx_t &font ) = 0;
@@ -200,15 +236,18 @@ public:
 	virtual void			SetColor( const idVec4 &rgba ) = 0;
 	virtual void			SetColor4( float r, float g, float b, float a ) = 0;
 
-	virtual void			DrawStretchPic( const idDrawVert *verts, const glIndex_t *indexes, int vertCount, int indexCount, const idMaterial *material,
-											bool clip = true, float min_x = 0.0f, float min_y = 0.0f, float max_x = 640.0f, float max_y = 480.0f ) = 0;
+	virtual void			DrawStretchPic( const idDrawVert *verts, const glIndex_t *indexes, int vertCount, int indexCount, const idMaterial *material, bool clip = true ) = 0;
 	virtual void			DrawStretchPic( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material ) = 0;
+	// jnewquist: Deal with flipped back-buffer copies on Xenon
+	virtual void			DrawStretchCopy( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material ) = 0;
 
 	virtual void			DrawStretchTri ( idVec2 p1, idVec2 p2, idVec2 p3, idVec2 t1, idVec2 t2, idVec2 t3, const idMaterial *material ) = 0;
 	virtual void			GlobalToNormalizedDeviceCoordinates( const idVec3 &global, idVec3 &ndc ) = 0;
 	virtual void			GetGLSettings( int& width, int& height ) = 0;
 	virtual void			PrintMemInfo( MemInfo_t *mi ) = 0;
 
+	virtual void			DrawTinyChar( int x, int y, int ch, const idMaterial *material ) = 0;
+	virtual void			DrawTinyStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material ) = 0;
 	virtual void			DrawSmallChar( int x, int y, int ch, const idMaterial *material ) = 0;
 	virtual void			DrawSmallStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material ) = 0;
 	virtual void			DrawBigChar( int x, int y, int ch, const idMaterial *material ) = 0;
@@ -226,9 +265,18 @@ public:
 	// a frame cam consist of 2D drawing and potentially multiple 3D scenes
 	// window sizes are needed to convert SCREEN_WIDTH / SCREEN_HEIGHT values
 	virtual void			BeginFrame( int windowWidth, int windowHeight ) = 0;
+	virtual void			BeginFrame( struct viewDef_s *viewDef, int windowWidth, int windowHeight ) = 0;
+	virtual	void			RenderLightFrustum( const struct renderLight_s &renderLight, idPlane lightFrustum[6] ) = 0;
+	virtual	void			LightProjectionMatrix( const idVec3 &origin, const idPlane &rearPlane, idVec4 mat[4] ) = 0;
+	virtual void			ToggleSmpFrame( void ) = 0;
+
+	// rjohnson: new blur special effect
+	virtual void			SetSpecialEffect( ESpecialEffectType Which, bool Enabled ) = 0;
+	virtual void			SetSpecialEffectParm( ESpecialEffectType Which, int Parm, float Value ) = 0;
+	virtual void			ShutdownSpecialEffects( void ) = 0;
 
 	// if the pointers are not NULL, timing info will be returned
-	virtual void			EndFrame( int *frontEndMsec, int *backEndMsec ) = 0;
+	virtual void			EndFrame( int *frontEndMsec = NULL, int *backEndMsec = NULL, int *numVerts = NULL, int *numIndexes = NULL ) = 0;
 
 	// aviDemo uses this.
 	// Will automatically tile render large screen shots if necessary
@@ -237,7 +285,8 @@ public:
 	// This will perform swapbuffers, so it is NOT an approppriate way to
 	// generate image files that happen during gameplay, as for savegame
 	// markers.  Use WriteRender() instead.
-	virtual void			TakeScreenshot( int width, int height, const char *fileName, int samples, struct renderView_s *ref ) = 0;
+	virtual	void			TakeJPGScreenshot( int width, int height, const char *fileName, int blends, struct renderView_s *ref, const char *basePath = "fs_savepath" ) = 0;
+	virtual void			TakeScreenshot( int width, int height, const char *fileName, int blends, struct renderView_s *ref, const char *basePath = "fs_savepath" ) = 0;
 
 	// the render output can be cropped down to a subset of the real screen, as
 	// for save-game reviews and split-screen multiplayer.  Users of the renderer
@@ -250,6 +299,7 @@ public:
 	// if the specified physical dimensions are larger than the current cropped region, they will be cut down to fit
 	virtual void			CropRenderSize( int width, int height, bool makePowerOfTwo = false, bool forceDimensions = false ) = 0;
 	virtual void			CaptureRenderToImage( const char *imageName ) = 0;
+	virtual void			CaptureRenderToMemory( void *buffer ) = 0;
 	// fixAlpha will set all the alpha channel values to 0xff, which allows screen captures
 	// to use the default tga loading code without having dimmed down areas in many places
 	virtual void			CaptureRenderToFile( const char *fileName, bool fixAlpha = false ) = 0;
@@ -260,6 +310,9 @@ public:
 	// texture filter / mipmapping / repeat won't be modified by the upload
 	// returns false if the image wasn't found
 	virtual bool			UploadImage( const char *imageName, const byte *data, int width, int height ) = 0;
+
+	virtual void			DebugGraph( float cur, float min, float max, const idVec4 &color ) = 0;
+	virtual void			ShowDebugGraph( void ) = 0;
 };
 
 extern idRenderSystem *			renderSystem;

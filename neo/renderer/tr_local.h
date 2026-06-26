@@ -692,30 +692,40 @@ static const int	MAX_RENDER_CROPS = 8;
 class idRenderSystemLocal : public idRenderSystem {
 public:
 	// external functions
+	// NOTE: order/signatures MUST match idRenderSystem (Q4 v37) exactly.
+	virtual void			DeferredInit( void ) {}
 	virtual void			Init( void );
 	virtual void			Shutdown( void );
 	virtual void			InitOpenGL( void );
 	virtual void			ShutdownOpenGL( void );
 	virtual bool			IsOpenGLRunning( void ) const;
+	virtual void			GetValidModes( idStr &Mode4x3Text, idStr &Mode4x3Values, idStr &Mode16x9Text, idStr &Mode16x9Values,
+											idStr &Mode16x10Text, idStr &Mode16x10Values );
 	virtual bool			IsFullScreen( void ) const;
 	virtual int				GetScreenWidth( void ) const;
 	virtual int				GetScreenHeight( void ) const;
 	virtual idRenderWorld *	AllocRenderWorld( void );
 	virtual void			FreeRenderWorld( idRenderWorld *rw );
+	virtual void			RemoveAllModelReferences( idRenderModel *model );
 	virtual void			BeginLevelLoad( void );
 	virtual void			EndLevelLoad( void );
+	virtual void			ExportMD5R( bool compressed );
+	virtual void			CopyPrimBatchTriangles( idDrawVert *destDrawVerts, glIndex_t *destIndices, void *primBatchMesh, void *silTraceVerts );
+	virtual void			TrackTextureUsage( TextureTrackCommand command, int frametime = 0, const char *name = NULL );
 	virtual bool			RegisterFont( const char *fontName, fontInfoEx_t &font );
 	virtual void			SetColor( const idVec4 &rgba );
 	virtual void			SetColor4( float r, float g, float b, float a );
-	virtual void			DrawStretchPic ( const idDrawVert *verts, const glIndex_t *indexes, int vertCount, int indexCount, const idMaterial *material,
-											bool clip = true, float x = 0.0f, float y = 0.0f, float w = 640.0f, float h = 0.0f );
+	virtual void			DrawStretchPic ( const idDrawVert *verts, const glIndex_t *indexes, int vertCount, int indexCount, const idMaterial *material, bool clip = true );
 	virtual void			DrawStretchPic ( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material );
+	virtual void			DrawStretchCopy( float x, float y, float w, float h, float s1, float t1, float s2, float t2, const idMaterial *material );
 
 	virtual void			DrawStretchTri ( idVec2 p1, idVec2 p2, idVec2 p3, idVec2 t1, idVec2 t2, idVec2 t3, const idMaterial *material );
 	virtual void			GlobalToNormalizedDeviceCoordinates( const idVec3 &global, idVec3 &ndc );
 	virtual void			GetGLSettings( int& width, int& height );
 	virtual void			PrintMemInfo( MemInfo_t *mi );
 
+	virtual void			DrawTinyChar( int x, int y, int ch, const idMaterial *material );
+	virtual void			DrawTinyStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material );
 	virtual void			DrawSmallChar( int x, int y, int ch, const idMaterial *material );
 	virtual void			DrawSmallStringExt( int x, int y, const char *string, const idVec4 &setColor, bool forceColor, const idMaterial *material );
 	virtual void			DrawBigChar( int x, int y, int ch, const idMaterial *material );
@@ -723,14 +733,25 @@ public:
 	virtual void			WriteDemoPics();
 	virtual void			DrawDemoPics();
 	virtual void			BeginFrame( int windowWidth, int windowHeight );
-	virtual void			EndFrame( int *frontEndMsec, int *backEndMsec );
-	virtual void			TakeScreenshot( int width, int height, const char *fileName, int downSample, renderView_t *ref );
+	virtual void			BeginFrame( struct viewDef_s *viewDef, int windowWidth, int windowHeight );
+	virtual	void			RenderLightFrustum( const struct renderLight_s &renderLight, idPlane lightFrustum[6] );
+	virtual	void			LightProjectionMatrix( const idVec3 &origin, const idPlane &rearPlane, idVec4 mat[4] );
+	virtual void			ToggleSmpFrame( void );
+	virtual void			SetSpecialEffect( ESpecialEffectType Which, bool Enabled );
+	virtual void			SetSpecialEffectParm( ESpecialEffectType Which, int Parm, float Value );
+	virtual void			ShutdownSpecialEffects( void );
+	virtual void			EndFrame( int *frontEndMsec = NULL, int *backEndMsec = NULL, int *numVerts = NULL, int *numIndexes = NULL );
+	virtual	void			TakeJPGScreenshot( int width, int height, const char *fileName, int blends, struct renderView_s *ref, const char *basePath = "fs_savepath" );
+	virtual void			TakeScreenshot( int width, int height, const char *fileName, int blends, struct renderView_s *ref, const char *basePath = "fs_savepath" );
 	virtual void			CropRenderSize( int width, int height, bool makePowerOfTwo = false, bool forceDimensions = false );
 	virtual void			CaptureRenderToImage( const char *imageName );
+	virtual void			CaptureRenderToMemory( void *buffer );
 	virtual void			CaptureRenderToFile( const char *fileName, bool fixAlpha );
 	virtual void			UnCrop();
 	virtual void			GetCardCaps( bool &oldCard, bool &nv10or20 );
 	virtual bool			UploadImage( const char *imageName, const byte *data, int width, int height );
+	virtual void			DebugGraph( float cur, float min, float max, const idVec4 &color );
+	virtual void			ShowDebugGraph( void );
 
 public:
 	// internal functions

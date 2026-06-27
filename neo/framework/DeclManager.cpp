@@ -1019,6 +1019,26 @@ void idDeclManagerLocal::ParseGuides( void ) {
 	fileSystem->FreeFileList( fileList );
 }
 
+// RAVEN/Q4: the v37 decl types materialType/lipSync/playback/effect are registered by
+// engine subsystems (the BSE effect manager, the lip-sync + playback systems) that we
+// stub out. With no registered type, the game's declManager->FindType(DECL_EFFECT/...)
+// aborts ("FindTypeWithoutParsing: bad type N") the moment an entity references an
+// effect. Register them with minimal pass-through decls so lookups return a harmless
+// default (effects/lipsync/playback stay no-ops until those systems are actually ported).
+class rvDeclStub : public idDecl {
+public:
+	virtual size_t			Size( void ) const { return sizeof( *this ); }
+	virtual const char *	DefaultDefinition( void ) const { return "{ }"; }
+	virtual bool			Parse( const char *text, const int textLength, bool noCaching ) { return true; }
+	virtual void			FreeData( void ) { }
+	virtual void			Print( void ) const { }
+	virtual void			List( void ) const { }
+};
+class rvDeclMatType  : public rvDeclStub { };
+class rvDeclLipSync  : public rvDeclStub { };
+class rvDeclPlayback : public rvDeclStub { };
+class rvDeclEffect   : public rvDeclStub { };
+
 /*
 ===================
 idDeclManagerLocal::Init
@@ -1052,6 +1072,14 @@ void idDeclManagerLocal::Init( void ) {
 	RegisterDeclType( "email",				DECL_EMAIL,			idDeclAllocator<idDeclEmail> );
 	RegisterDeclType( "video",				DECL_VIDEO,			idDeclAllocator<idDeclVideo> );
 	RegisterDeclType( "audio",				DECL_AUDIO,			idDeclAllocator<idDeclAudio> );
+
+	// RAVEN/Q4: decl types normally registered by engine subsystems we stub (BSE
+	// effects, lip-sync, playback, material types). Pass-through stubs so the game's
+	// FindType(DECL_EFFECT/...) returns a default instead of "bad type N".
+	RegisterDeclType( "materialType",		DECL_MATERIALTYPE,	idDeclAllocator<rvDeclMatType> );
+	RegisterDeclType( "lipSync",			DECL_LIPSYNC,		idDeclAllocator<rvDeclLipSync> );
+	RegisterDeclType( "playback",			DECL_PLAYBACK,		idDeclAllocator<rvDeclPlayback> );
+	RegisterDeclType( "effect",				DECL_EFFECT,		idDeclAllocator<rvDeclEffect> );
 
 	// RAVEN: load Quake 4 guide (material template) files before any .mtr that
 	// instantiates them via the "guide" directive.

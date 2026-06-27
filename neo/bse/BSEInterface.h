@@ -34,7 +34,9 @@ typedef enum {
 } effectCategory_t;
 
 class rvRenderEffectLocal;		// fwd only - the stub never dereferences it
-struct renderEffect_t;			// fwd only
+// renderEffect_t (typedef of struct renderEffect_s) is provided by renderer/RenderWorld.h,
+// which is included via the precompiled header before this file. Do not re-declare it here
+// (a 'struct renderEffect_t' tag would clash with that typedef -> C2371).
 
 // Interface to the effects system
 class rvBSEManager {

@@ -81,9 +81,11 @@ void idRenderWorldLocal::StopWritingDemo() {
 ProcessDemoCommand
 ==============
 */
-bool		idRenderWorldLocal::ProcessDemoCommand( idDemoFile *readDemo, renderView_t *renderView, int *demoTimeOffset ) {
+bool		idRenderWorldLocal::ProcessDemoCommand( idDemoFile *readDemo, renderView_t *renderView, renderView_t *portalSkyRenderView, int *demoTimeOffset ) {
+	// RAVEN/Q4 v37: portalSkyRenderView is part of the ABI; this engine's demo path
+	// does not separate a portal-sky view, so the parameter is unused.
 	bool	newMap = false;
-	
+
 	if ( !readDemo ) {
 		return false;
 	}
@@ -443,17 +445,14 @@ void	idRenderWorldLocal::WriteRenderLight( qhandle_t handle, const renderLight_t
 	session->writeDemo->WriteInt( (int&)light->shader );
 	for ( int i = 0; i < MAX_ENTITY_SHADER_PARMS; i++)
 		session->writeDemo->WriteFloat( light->shaderParms[i] );
-	session->writeDemo->WriteInt( (int&)light->referenceSound );
+	// RAVEN/Q4 v37: referenceSound pointer replaced by referenceSoundHandle (the emitter index).
+	session->writeDemo->WriteInt( light->referenceSoundHandle );
 
 	if ( light->prelightModel ) {
 		session->writeDemo->WriteHashString( light->prelightModel->Name() );
 	}
 	if ( light->shader ) {
 		session->writeDemo->WriteHashString( light->shader->GetName() );
-	}
-	if ( light->referenceSound ) {
-		int	index = light->referenceSound->Index();
-		session->writeDemo->WriteInt( index );
 	}
 
 	if ( r_showDemo.GetBool() ) {
@@ -495,17 +494,13 @@ void	idRenderWorldLocal::ReadRenderLight( ) {
 	session->readDemo->ReadInt( (int&)light.shader );
 	for ( int i = 0; i < MAX_ENTITY_SHADER_PARMS; i++)
 		session->readDemo->ReadFloat( light.shaderParms[i] );
-	session->readDemo->ReadInt( (int&)light.referenceSound );
+	// RAVEN/Q4 v37: referenceSound pointer replaced by referenceSoundHandle (the emitter index).
+	session->readDemo->ReadInt( light.referenceSoundHandle );
 	if ( light.prelightModel ) {
 		light.prelightModel = renderModelManager->FindModel( session->readDemo->ReadHashString() );
 	}
 	if ( light.shader ) {
 		light.shader = declManager->FindMaterial( session->readDemo->ReadHashString() );
-	}
-	if ( light.referenceSound ) {
-		int	index;
-		session->readDemo->ReadInt( index );
-		light.referenceSound = session->sw->EmitterForIndex( index );
 	}
 
 	UpdateLightDef( index, &light );
@@ -548,7 +543,8 @@ void	idRenderWorldLocal::WriteRenderEntity( qhandle_t handle, const renderEntity
 	session->writeDemo->WriteInt( (int&)ent->customShader );
 	session->writeDemo->WriteInt( (int&)ent->referenceShader );
 	session->writeDemo->WriteInt( (int&)ent->customSkin );
-	session->writeDemo->WriteInt( (int&)ent->referenceSound );
+	// RAVEN/Q4 v37: referenceSound pointer replaced by referenceSoundHandle (the emitter index).
+	session->writeDemo->WriteInt( ent->referenceSoundHandle );
 	for ( int i = 0; i < MAX_ENTITY_SHADER_PARMS; i++ )
 		session->writeDemo->WriteFloat( ent->shaderParms[i] );
 	for ( int i = 0; i < MAX_RENDERENTITY_GUI; i++ )
@@ -560,8 +556,9 @@ void	idRenderWorldLocal::WriteRenderEntity( qhandle_t handle, const renderEntity
 	session->writeDemo->WriteBool( ent->noSelfShadow );
 	session->writeDemo->WriteBool( ent->noShadow );
 	session->writeDemo->WriteBool( ent->noDynamicInteractions );
-	session->writeDemo->WriteBool( ent->weaponDepthHack );
-	session->writeDemo->WriteInt( ent->forceUpdate );
+	// RAVEN/Q4 v37: weaponDepthHack(bool) -> weaponDepthHackInViewID(int); forceUpdate(int) -> forceUpdate(bool).
+	session->writeDemo->WriteInt( ent->weaponDepthHackInViewID );
+	session->writeDemo->WriteBool( ent->forceUpdate );
 
 	if ( ent->customShader ) {
 		session->writeDemo->WriteHashString( ent->customShader->GetName() );
@@ -574,10 +571,6 @@ void	idRenderWorldLocal::WriteRenderEntity( qhandle_t handle, const renderEntity
 	}
 	if ( ent->referenceShader ) {
 		session->writeDemo->WriteHashString( ent->referenceShader->GetName() );
-	}
-	if ( ent->referenceSound ) {
-		int	index = ent->referenceSound->Index();
-		session->writeDemo->WriteInt( index );
 	}
 	if ( ent->numJoints ) {
 		for ( int i = 0; i < ent->numJoints; i++) {
@@ -609,8 +602,9 @@ void	idRenderWorldLocal::WriteRenderEntity( qhandle_t handle, const renderEntity
 #endif
 
 	// RENDERDEMO_VERSION >= 2 ( Doom3 1.2 )
-	session->writeDemo->WriteInt( ent->timeGroup );
-	session->writeDemo->WriteInt( ent->xrayIndex );
+	// RAVEN/Q4 v37: timeGroup / xrayIndex removed from renderEntity_t; write 0 placeholders to keep stream shape.
+	session->writeDemo->WriteInt( 0 );
+	session->writeDemo->WriteInt( 0 );
 
 	if ( r_showDemo.GetBool() ) {
 		common->Printf( "write DC_UPDATE_ENTITYDEF: %i = %s\n", handle, ent->hModel ? ent->hModel->Name() : "NULL" );
@@ -647,7 +641,8 @@ void	idRenderWorldLocal::ReadRenderEntity() {
 	session->readDemo->ReadInt( (int&)ent.customShader );
 	session->readDemo->ReadInt( (int&)ent.referenceShader );
 	session->readDemo->ReadInt( (int&)ent.customSkin );
-	session->readDemo->ReadInt( (int&)ent.referenceSound );
+	// RAVEN/Q4 v37: referenceSound pointer replaced by referenceSoundHandle (the emitter index).
+	session->readDemo->ReadInt( ent.referenceSoundHandle );
 	for ( i = 0; i < MAX_ENTITY_SHADER_PARMS; i++ ) {
 		session->readDemo->ReadFloat( ent.shaderParms[i] );
 	}
@@ -661,8 +656,9 @@ void	idRenderWorldLocal::ReadRenderEntity() {
 	session->readDemo->ReadBool( ent.noSelfShadow );
 	session->readDemo->ReadBool( ent.noShadow );
 	session->readDemo->ReadBool( ent.noDynamicInteractions );
-	session->readDemo->ReadBool( ent.weaponDepthHack );
-	session->readDemo->ReadInt( ent.forceUpdate );
+	// RAVEN/Q4 v37: weaponDepthHack(bool) -> weaponDepthHackInViewID(int); forceUpdate(int) -> forceUpdate(bool).
+	session->readDemo->ReadInt( ent.weaponDepthHackInViewID );
+	session->readDemo->ReadBool( ent.forceUpdate );
 	ent.callback = NULL;
 	if ( ent.customShader ) {
 		ent.customShader = declManager->FindMaterial( session->readDemo->ReadHashString() );
@@ -675,11 +671,6 @@ void	idRenderWorldLocal::ReadRenderEntity() {
 	}
 	if ( ent.referenceShader ) {
 		ent.referenceShader = declManager->FindMaterial( session->readDemo->ReadHashString() );
-	}
-	if ( ent.referenceSound ) {
-		int	index;
-		session->readDemo->ReadInt( index );
-		ent.referenceSound = session->sw->EmitterForIndex( index );
 	}
 	if ( ent.numJoints ) {
 		ent.joints = (idJointMat *)Mem_Alloc16( ent.numJoints * sizeof( ent.joints[0] ) ); 
@@ -713,12 +704,11 @@ void	idRenderWorldLocal::ReadRenderEntity() {
 	}
 
 	// >= Doom3 v1.2 only
+	// RAVEN/Q4 v37: timeGroup / xrayIndex removed from renderEntity_t; consume the placeholders.
 	if ( session->renderdemoVersion >= 2 ) {
-		session->readDemo->ReadInt( ent.timeGroup );
-		session->readDemo->ReadInt( ent.xrayIndex );
-	} else {
-		ent.timeGroup = 0;
-		ent.xrayIndex = 0;
+		int tmpTimeGroup, tmpXrayIndex;
+		session->readDemo->ReadInt( tmpTimeGroup );
+		session->readDemo->ReadInt( tmpXrayIndex );
 	}
 
 	UpdateEntityDef( index, &ent );

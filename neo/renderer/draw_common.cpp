@@ -1013,7 +1013,8 @@ int RB_STD_DrawShaderPasses( drawSurf_t **drawSurfs, int numDrawSurfs ) {
 		}
 
 		if ( backEnd.viewDef->isXraySubview && drawSurfs[i]->space->entityDef ) {
-			if ( drawSurfs[i]->space->entityDef->parms.xrayIndex != 2 ) {
+			// RAVEN/Q4 v37: xrayIndex removed from renderEntity_t (no xray subviews in Q4).
+			if ( 0 != 2 ) {
 				continue;
 			}
 		}

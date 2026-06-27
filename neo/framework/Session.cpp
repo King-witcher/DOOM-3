@@ -2291,7 +2291,8 @@ void idSessionLocal::AdvanceRenderDemo( bool singleFrameOnly ) {
 			break;
 		}
 		if ( ds == DS_RENDER ) {
-			if ( rw->ProcessDemoCommand( readDemo, &currentDemoRenderView, &demoTimeOffset ) ) {
+			// RAVEN/Q4 v37: ProcessDemoCommand gained a portalSkyRenderView arg; this path has no portal-sky view.
+			if ( rw->ProcessDemoCommand( readDemo, &currentDemoRenderView, NULL, &demoTimeOffset ) ) {
 				// a view is ready to render
 				skipFrames--;
 				numDemoFrames++;

@@ -672,7 +672,8 @@ Rendering a scene may require multiple views to be rendered
 to handle mirrors,
 ====================
 */
-void idRenderWorldLocal::RenderScene( const renderView_t *renderView ) {
+void idRenderWorldLocal::RenderScene( const renderView_t *renderView, int renderFlags ) {
+	// RAVEN/Q4 v37: renderFlags is part of the ABI but the D3 front end does not branch on it; ignored.
 #ifndef	ID_DEDICATED
 	renderView_t	copy;
 
@@ -1718,12 +1719,14 @@ void idRenderWorldLocal::PushVolumeIntoTree( idRenderEntityLocal *def, idRenderL
 
 /*
 ====================
-idRenderWorldLocal::DebugClearLines
+idRenderWorldLocal::DebugClear
 ====================
 */
-void idRenderWorldLocal::DebugClearLines( int time ) {
+void idRenderWorldLocal::DebugClear( int time ) {
 	RB_ClearDebugLines( time );
 	RB_ClearDebugText( time );
+	// RAVEN/Q4 v37 folded the separate DebugClearPolygons into DebugClear.
+	RB_ClearDebugPolygons( time );
 }
 
 /*
@@ -1870,7 +1873,7 @@ void idRenderWorldLocal::DebugSphere( const idVec4 &color, const idSphere &spher
 idRenderWorldLocal::DebugBounds
 ====================
 */
-void idRenderWorldLocal::DebugBounds( const idVec4 &color, const idBounds &bounds, const idVec3 &org, const int lifetime ) {
+void idRenderWorldLocal::DebugBounds( const idVec4 &color, const idBounds &bounds, const idVec3 &org, const int lifetime, bool depthTest ) {
 	int i;
 	idVec3 v[8];
 
@@ -1884,9 +1887,9 @@ void idRenderWorldLocal::DebugBounds( const idVec4 &color, const idBounds &bound
 		v[i][2] = org[2] + bounds[(i>>2)&1][2];
 	}
 	for ( i = 0; i < 4; i++ ) {
-		DebugLine( color, v[i], v[(i+1)&3], lifetime );
-		DebugLine( color, v[4+i], v[4+((i+1)&3)], lifetime );
-		DebugLine( color, v[i], v[4+i], lifetime );
+		DebugLine( color, v[i], v[(i+1)&3], lifetime, depthTest );
+		DebugLine( color, v[4+i], v[4+((i+1)&3)], lifetime, depthTest );
+		DebugLine( color, v[i], v[4+i], lifetime, depthTest );
 	}
 }
 
@@ -2000,14 +2003,8 @@ void idRenderWorldLocal::DebugAxis( const idVec3 &origin, const idMat3 &axis ) {
 	DebugArrow( colorBlue, start, end, 2 );
 }
 
-/*
-====================
-idRenderWorldLocal::DebugClearPolygons
-====================
-*/
-void idRenderWorldLocal::DebugClearPolygons( int time ) {
-	RB_ClearDebugPolygons( time );
-}
+// RAVEN/Q4 v37: DebugClearPolygons was removed from the idRenderWorld vtable;
+// its behavior is now folded into DebugClear() above.
 
 /*
 ====================
@@ -2140,3 +2137,224 @@ const idMaterial *R_RemapShaderBySkin( const idMaterial *shader, const idDeclSki
 
 	return skin->RemapShaderBySkin( shader );
 }
+
+// ===========================================================================
+// RAVEN BEGIN
+// Quake 4 v37 idRenderWorld additions. The retail game DLL calls these across the
+// ABI boundary; for boot-to-menu (no world rendered, no BSE effects, no demo
+// playback) trivial stubs are sufficient. The internal D3 render-world algorithms
+// above are preserved unchanged.
+// ===========================================================================
+
+/*
+====================
+idRenderWorldLocal::WriteRenderLight  (virtual demo variant)
+
+Q4 demo writer for a single light. Demos are not exercised at boot-to-menu.
+====================
+*/
+void idRenderWorldLocal::WriteRenderLight( idDemoFile *writeDemo, const renderLight_t *light ) {
+}
+
+/*
+====================
+idRenderWorldLocal::ReadRenderLight  (virtual demo variant)
+====================
+*/
+void idRenderWorldLocal::ReadRenderLight( idDemoFile *readDemo, renderLight_t &light ) {
+}
+
+/*
+====================
+idRenderWorldLocal::AddEffectDef
+
+BSE (Battle Special Effects) are a Raven-only system absent from this engine.
+====================
+*/
+qhandle_t idRenderWorldLocal::AddEffectDef( const renderEffect_t *reffect, int time ) {
+	return -1;
+}
+
+/*
+====================
+idRenderWorldLocal::UpdateEffectDef
+====================
+*/
+bool idRenderWorldLocal::UpdateEffectDef( qhandle_t effectHandle, const renderEffect_t *reffect, int time ) {
+	return false;
+}
+
+/*
+====================
+idRenderWorldLocal::StopEffectDef
+====================
+*/
+void idRenderWorldLocal::StopEffectDef( qhandle_t effectHandle ) {
+}
+
+/*
+====================
+idRenderWorldLocal::GetEffectDef
+====================
+*/
+const rvRenderEffectLocal* idRenderWorldLocal::GetEffectDef( qhandle_t effectHandle ) const {
+	return NULL;
+}
+
+/*
+====================
+idRenderWorldLocal::FreeEffectDef
+====================
+*/
+void idRenderWorldLocal::FreeEffectDef( qhandle_t effectHandle ) {
+}
+
+/*
+====================
+idRenderWorldLocal::EffectDefHasSound
+====================
+*/
+bool idRenderWorldLocal::EffectDefHasSound( const renderEffect_s *reffect ) {
+	return false;
+}
+
+/*
+====================
+idRenderWorldLocal::PushMarkedDefs
+====================
+*/
+void idRenderWorldLocal::PushMarkedDefs( void ) {
+}
+
+/*
+====================
+idRenderWorldLocal::ClearMarkedDefs
+====================
+*/
+void idRenderWorldLocal::ClearMarkedDefs( void ) {
+}
+
+/*
+====================
+idRenderWorldLocal::FreeDefs  (virtual, Q4 v37 vtable slot)
+
+Q4's FreeDefs() frees pending/marked defs ("for optimised pushes"). The engine's
+own world teardown uses FreeDefsInternal() directly; nothing is marked at boot-to-menu.
+====================
+*/
+void idRenderWorldLocal::FreeDefs( void ) {
+}
+
+/*
+====================
+idRenderWorldLocal::RemoveAllModelReferences
+====================
+*/
+void idRenderWorldLocal::RemoveAllModelReferences( idRenderModel *model ) {
+}
+
+/*
+====================
+idRenderWorldLocal::HasSkybox
+====================
+*/
+bool idRenderWorldLocal::HasSkybox( int areaNum ) {
+	return false;
+}
+
+/*
+====================
+idRenderWorldLocal::FindVisibleAreas
+====================
+*/
+void idRenderWorldLocal::FindVisibleAreas( idVec3 origin, int areaNum, bool *visibleAreas ) {
+}
+
+/*
+====================
+idRenderWorldLocal::RenderPortalFades
+====================
+*/
+void idRenderWorldLocal::RenderPortalFades( void ) {
+}
+
+/*
+====================
+idRenderWorldLocal::WorldToScreen (point)
+====================
+*/
+idVec3 idRenderWorldLocal::WorldToScreen( renderView_t* view, idVec3 point ) {
+	return vec3_origin;
+}
+
+/*
+====================
+idRenderWorldLocal::WorldToScreen (bounds)
+====================
+*/
+idBounds idRenderWorldLocal::WorldToScreen( renderView_t* view, idBounds bounds ) {
+	idBounds ret;
+	ret.Clear();
+	return ret;
+}
+
+/*
+====================
+idRenderWorldLocal::GetPortals
+====================
+*/
+void idRenderWorldLocal::GetPortals( int areaNum, exitPortal_t *ret, int size ) {
+}
+
+/*
+====================
+idRenderWorldLocal::GetPortal (out-param overload)
+====================
+*/
+void idRenderWorldLocal::GetPortal( int areaNum, int portalNum, exitPortal_t *ret ) {
+	if ( ret ) {
+		*ret = GetPortal( areaNum, portalNum );
+	}
+}
+
+/*
+====================
+idRenderWorldLocal::MemorySummary
+====================
+*/
+size_t idRenderWorldLocal::MemorySummary( const idCmdArgs &args ) {
+	return 0;
+}
+
+/*
+====================
+idRenderWorldLocal::ShowDebugLines
+====================
+*/
+void idRenderWorldLocal::ShowDebugLines( void ) {
+}
+
+/*
+====================
+idRenderWorldLocal::ShowDebugPolygons
+====================
+*/
+void idRenderWorldLocal::ShowDebugPolygons( void ) {
+}
+
+/*
+====================
+idRenderWorldLocal::ShowDebugText
+====================
+*/
+void idRenderWorldLocal::ShowDebugText( void ) {
+}
+
+/*
+====================
+idRenderWorldLocal::DebugFOV
+====================
+*/
+void idRenderWorldLocal::DebugFOV( const idVec4 &color, const idVec3 &origin, const idVec3 &dir, float farDot, float farDist, float nearDot, float nearDist, float alpha, int lifetime ) {
+}
+// RAVEN END

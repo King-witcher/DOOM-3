@@ -1275,7 +1275,8 @@ void CCamWnd::BuildEntityRenderState( entity_t *ent, bool update) {
 	if ( v && *v ) {
 		renderEntity_t	refent;
 
-		refent.referenceSound = ent->soundEmitter;
+		// RAVEN/Q4 v37: referenceSound pointer replaced by referenceSoundHandle (the emitter index).
+		refent.referenceSoundHandle = ent->soundEmitter ? ent->soundEmitter->Index() : 0;
 
 		if ( !stricmp( name, v ) ) {
 			// build the model from brushes
@@ -1361,7 +1362,8 @@ void CCamWnd::BuildEntityRenderState( entity_t *ent, bool update) {
 	renderLight_t	lightParms;
 
 	gameEdit->ParseSpawnArgsToRenderLight( &spawnArgs, &lightParms );
-	lightParms.referenceSound = ent->soundEmitter;
+	// RAVEN/Q4 v37: referenceSound pointer replaced by referenceSoundHandle (the emitter index).
+	lightParms.referenceSoundHandle = ent->soundEmitter ? ent->soundEmitter->Index() : 0;
 
 	if (update && ent->lightDef >= 0) {
 		g_qeglobals.rw->UpdateLightDef( ent->lightDef, &lightParms );

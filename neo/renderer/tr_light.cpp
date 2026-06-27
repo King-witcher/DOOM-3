@@ -392,7 +392,9 @@ viewEntity_t *R_SetEntityDefViewEntity( idRenderEntityLocal *def ) {
 
 	// copy the model and weapon depth hack for back-end use
 	vModel->modelDepthHack = def->parms.modelDepthHack;
-	vModel->weaponDepthHack = def->parms.weaponDepthHack;
+	// RAVEN/Q4 v37: weaponDepthHack(bool) became weaponDepthHackInViewID(int) on renderEntity_t.
+	// The depth hack applies only when the requested view id matches the view being rendered.
+	vModel->weaponDepthHack = ( def->parms.weaponDepthHackInViewID != 0 && tr.viewDef != NULL && def->parms.weaponDepthHackInViewID == tr.viewDef->renderView.viewID );
 
 	R_AxisToModelMatrix( def->parms.axis, def->parms.origin, vModel->modelMatrix );
 
@@ -687,7 +689,9 @@ void R_LinkLightSurf( const drawSurf_t **link, const srfTriangles_t *tri, const 
 			// FIXME: share with the ambient surface?
 			float *regs = (float *)R_FrameAlloc( shader->GetNumRegisters() * sizeof( float ) );
 			drawSurf->shaderRegisters = regs;
-			shader->EvaluateRegisters( regs, space->entityDef->parms.shaderParms, tr.viewDef, space->entityDef->parms.referenceSound );
+			// RAVEN/Q4 v37: renderEntity_t stores referenceSoundHandle(int), not an idSoundEmitter*.
+			// Sound-amplitude-driven shader registers are not exercised at boot-to-menu; pass NULL.
+			shader->EvaluateRegisters( regs, space->entityDef->parms.shaderParms, tr.viewDef, NULL );
 		}
 
 		// calculate the specular coordinates if we aren't using vertex programs
@@ -907,7 +911,8 @@ void R_AddLightSurfaces( void ) {
 		// evaluate the light shader registers
 		float *lightRegs =(float *)R_FrameAlloc( lightShader->GetNumRegisters() * sizeof( float ) );
 		vLight->shaderRegisters = lightRegs;
-		lightShader->EvaluateRegisters( lightRegs, light->parms.shaderParms, tr.viewDef, light->parms.referenceSound );
+		// RAVEN/Q4 v37: renderLight_t stores referenceSoundHandle(int), not an idSoundEmitter*; pass NULL.
+		lightShader->EvaluateRegisters( lightRegs, light->parms.shaderParms, tr.viewDef, NULL );
 
 		// if this is a purely additive light and no stage in the light shader evaluates
 		// to a positive light value, we can completely skip the light
@@ -1234,7 +1239,8 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 			// evaluate the reference shader to find our shader parms
 			const shaderStage_t *pStage;
 
-			renderEntity->referenceShader->EvaluateRegisters( refRegs, renderEntity->shaderParms, tr.viewDef, renderEntity->referenceSound );
+			// RAVEN/Q4 v37: renderEntity_t stores referenceSoundHandle(int), not an idSoundEmitter*; pass NULL.
+			renderEntity->referenceShader->EvaluateRegisters( refRegs, renderEntity->shaderParms, tr.viewDef, NULL );
 			pStage = renderEntity->referenceShader->GetStage(0);
 
 			memcpy( generatedShaderParms, renderEntity->shaderParms, sizeof( generatedShaderParms ) );
@@ -1251,7 +1257,7 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 		float oldFloatTime;
 		int oldTime;
 
-		if ( space->entityDef && space->entityDef->parms.timeGroup ) {
+		if ( space->entityDef && 0 /* RAVEN/Q4 v37: timeGroup removed from renderEntity_t */ ) {
 			oldFloatTime = tr.viewDef->floatTime;
 			oldTime = tr.viewDef->renderView.time;
 
@@ -1259,9 +1265,10 @@ void R_AddDrawSurf( const srfTriangles_t *tri, const viewEntity_t *space, const 
 			tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
 		}
 
-		shader->EvaluateRegisters( regs, shaderParms, tr.viewDef, renderEntity->referenceSound );
+		// RAVEN/Q4 v37: renderEntity_t stores referenceSoundHandle(int), not an idSoundEmitter*; pass NULL.
+		shader->EvaluateRegisters( regs, shaderParms, tr.viewDef, NULL );
 
-		if ( space->entityDef && space->entityDef->parms.timeGroup ) {
+		if ( space->entityDef && 0 /* RAVEN/Q4 v37: timeGroup removed from renderEntity_t */ ) {
 			tr.viewDef->floatTime = oldFloatTime;
 			tr.viewDef->renderView.time = oldTime;
 		}
@@ -1485,21 +1492,21 @@ void R_AddModelSurfaces( void ) {
 		int oldTime;
 
 		// RAVEN/Q4: v37 idGame dropped SelectTimeGroup/GetTimeGroupTime; no time-group remapping.
-		if ( vEntity->entityDef->parms.timeGroup ) {
+		if ( 0 /* RAVEN/Q4 v37: timeGroup removed from renderEntity_t */ ) {
 			oldFloatTime = tr.viewDef->floatTime;
 			oldTime = tr.viewDef->renderView.time;
 
 			tr.viewDef->floatTime = tr.viewDef->renderView.time * 0.001;
 		}
 
-		if ( tr.viewDef->isXraySubview && vEntity->entityDef->parms.xrayIndex == 1 ) {
-			if ( vEntity->entityDef->parms.timeGroup ) {
+		if ( tr.viewDef->isXraySubview && 0 /* RAVEN/Q4 v37: xrayIndex removed from renderEntity_t */ == 1 ) {
+			if ( 0 /* RAVEN/Q4 v37: timeGroup removed from renderEntity_t */ ) {
 				tr.viewDef->floatTime = oldFloatTime;
 				tr.viewDef->renderView.time = oldTime;
 			}
 			continue;
-		} else if ( !tr.viewDef->isXraySubview && vEntity->entityDef->parms.xrayIndex == 2 ) {
-			if ( vEntity->entityDef->parms.timeGroup ) {
+		} else if ( !tr.viewDef->isXraySubview && 0 /* RAVEN/Q4 v37: xrayIndex removed from renderEntity_t */ == 2 ) {
+			if ( 0 /* RAVEN/Q4 v37: timeGroup removed from renderEntity_t */ ) {
 				tr.viewDef->floatTime = oldFloatTime;
 				tr.viewDef->renderView.time = oldTime;
 			}
@@ -1510,7 +1517,7 @@ void R_AddModelSurfaces( void ) {
 		if ( !vEntity->scissorRect.IsEmpty() ) {
 			model = R_EntityDefDynamicModel( vEntity->entityDef );
 			if ( model == NULL || model->NumSurfaces() <= 0 ) {
-				if ( vEntity->entityDef->parms.timeGroup ) {
+				if ( 0 /* RAVEN/Q4 v37: timeGroup removed from renderEntity_t */ ) {
 					tr.viewDef->floatTime = oldFloatTime;
 					tr.viewDef->renderView.time = oldTime;
 				}
@@ -1527,7 +1534,7 @@ void R_AddModelSurfaces( void ) {
 		// for all the entity / light interactions on this entity, add them to the view
 		//
 		if ( tr.viewDef->isXraySubview ) {
-			if ( vEntity->entityDef->parms.xrayIndex == 2 ) {
+			if ( 0 /* RAVEN/Q4 v37: xrayIndex removed from renderEntity_t */ == 2 ) {
 				for ( inter = vEntity->entityDef->firstInteraction; inter != NULL && !inter->IsEmpty(); inter = next ) {
 					next = inter->entityNext;
 					if ( inter->lightDef->viewCount != tr.viewCount ) {
@@ -1552,7 +1559,7 @@ void R_AddModelSurfaces( void ) {
 			}
 		}
 
-		if ( vEntity->entityDef->parms.timeGroup ) {
+		if ( 0 /* RAVEN/Q4 v37: timeGroup removed from renderEntity_t */ ) {
 			tr.viewDef->floatTime = oldFloatTime;
 			tr.viewDef->renderView.time = oldTime;
 		}

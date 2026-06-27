@@ -41,7 +41,7 @@ void idRenderWorldLocal::FreeWorld() {
 	int i;
 
 	// this will free all the lightDefs and entityDefs
-	FreeDefs();
+	FreeDefsInternal();
 
 	// free all the portals and check light/model references
 	for ( i = 0 ; i < numPortalAreas ; i++ ) {
@@ -436,12 +436,12 @@ void idRenderWorldLocal::ClearWorld() {
 
 /*
 =================
-idRenderWorldLocal::FreeDefs
+idRenderWorldLocal::FreeDefsInternal
 
 dump all the interactions
 =================
 */
-void idRenderWorldLocal::FreeDefs() {
+void idRenderWorldLocal::FreeDefsInternal() {
 	int		i;
 
 	generateAllInteractionsCalled = false;
@@ -509,7 +509,7 @@ bool idRenderWorldLocal::InitFromMap( const char *name ) {
 	if ( name == mapName ) {
 		if ( currentTimeStamp != FILE_NOT_FOUND_TIMESTAMP && currentTimeStamp == mapTimeStamp ) {
 			common->Printf( "idRenderWorldLocal::InitFromMap: retaining existing map\n" );
-			FreeDefs();
+			FreeDefsInternal();
 			TouchWorldModels();
 			AddWorldModelEntities();
 			ClearPortalStates();
@@ -695,23 +695,6 @@ void idRenderWorldLocal::AddWorldModelEntities() {
 	}
 }
 
-/*
-=====================
-CheckAreaForPortalSky
-=====================
-*/
-bool idRenderWorldLocal::CheckAreaForPortalSky( int areaNum ) {
-	areaReference_t	*ref;
-
-	assert( areaNum >= 0 && areaNum < numPortalAreas );
-
-	for ( ref = portalAreas[areaNum].entityRefs.areaNext; ref->entity; ref = ref->areaNext ) {
-		assert( ref->area == &portalAreas[areaNum] );
-
-		if ( ref->entity && ref->entity->needsPortalSky ) {
-			return true;
-		}
-	}
-
-	return false;
-}
+// RAVEN/Q4 v37: CheckAreaForPortalSky was removed from the idRenderWorld vtable
+// (portal-sky discovery is handled differently in Q4); the D3 implementation is
+// retired here. No compiled engine TU references it.

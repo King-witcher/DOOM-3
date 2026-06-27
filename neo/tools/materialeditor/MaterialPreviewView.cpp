@@ -538,7 +538,7 @@ void idGLDrawableView::draw(int x, int y, int w, int h) {
 
 		renderSystem->EndFrame( NULL, NULL );
 
-		world->DebugClearLines( refdef.time );
+		world->DebugClear( refdef.time );
 
 		qglMatrixMode( GL_MODELVIEW );
 		qglLoadIdentity();

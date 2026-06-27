@@ -90,7 +90,23 @@ public:
 	virtual	void			FreeLightDef( qhandle_t lightHandle );
 	virtual const renderLight_t *GetRenderLight( qhandle_t lightHandle ) const;
 
-	virtual bool			CheckAreaForPortalSky( int areaNum );
+// RAVEN BEGIN - Quake 4 v37 inserted block (effect defs, demo light read/write, marked-def helpers)
+	virtual void			WriteRenderLight( idDemoFile *writeDemo, const renderLight_t *light );
+	virtual void			ReadRenderLight( idDemoFile *readDemo, renderLight_t &light );
+
+	virtual qhandle_t		AddEffectDef( const renderEffect_t *reffect, int time );
+	virtual bool			UpdateEffectDef( qhandle_t effectHandle, const renderEffect_t *reffect, int time );
+	virtual void			StopEffectDef( qhandle_t effectHandle );
+	virtual const class rvRenderEffectLocal* GetEffectDef( qhandle_t effectHandle ) const;
+	virtual void			FreeEffectDef( qhandle_t effectHandle );
+	virtual bool			EffectDefHasSound( const renderEffect_s *reffect );
+
+	virtual void			PushMarkedDefs( void );
+	virtual void			ClearMarkedDefs( void );
+	virtual void			FreeDefs( void );
+
+	virtual void			RemoveAllModelReferences( idRenderModel *model );
+// RAVEN END
 
 	virtual	void			GenerateAllInteractions();
 	virtual void			RegenerateWorld();
@@ -101,12 +117,23 @@ public:
 	virtual void			RemoveDecals( qhandle_t entityHandle );
 
 	virtual void			SetRenderView( const renderView_t *renderView );
-	virtual	void			RenderScene( const renderView_t *renderView );
+	virtual	void			RenderScene( const renderView_t *renderView, int renderFlags = RF_NORMAL );
+// RAVEN BEGIN - Quake 4 v37 skybox / portal-fade / world-to-screen helpers
+	virtual bool			HasSkybox( int areaNum );
+	virtual void			FindVisibleAreas( idVec3 origin, int areaNum, bool *visibleAreas );
+	virtual void			RenderPortalFades( void );
+	virtual idVec3			WorldToScreen( renderView_t* view, idVec3 point );
+	virtual idBounds		WorldToScreen( renderView_t* view, idBounds bounds );
+// RAVEN END
 
 	virtual	int				NumAreas( void ) const;
 	virtual int				PointInArea( const idVec3 &point ) const;
 	virtual int				BoundsInAreas( const idBounds &bounds, int *areas, int maxAreas ) const;
 	virtual	int				NumPortalsInArea( int areaNum );
+// RAVEN BEGIN - Quake 4 v37 GetPortals + GetPortal(out-param) overloads precede the by-value GetPortal
+	virtual void			GetPortals( int areaNum, exitPortal_t *ret, int size );
+	virtual void			GetPortal( int areaNum, int portalNum, exitPortal_t *ret );
+// RAVEN END
 	virtual exitPortal_t	GetPortal( int areaNum, int portalNum );
 
 	virtual	guiPoint_t		GuiTrace( qhandle_t entityHandle, const idVec3 start, const idVec3 end ) const;
@@ -114,23 +141,31 @@ public:
 	virtual bool			Trace( modelTrace_t &trace, const idVec3 &start, const idVec3 &end, const float radius, bool skipDynamic = true, bool skipPlayer = false ) const;
 	virtual bool			FastWorldTrace( modelTrace_t &trace, const idVec3 &start, const idVec3 &end ) const;
 
-	virtual void			DebugClearLines( int time );
+	virtual void			DebugClear( int time );
 	virtual void			DebugLine( const idVec4 &color, const idVec3 &start, const idVec3 &end, const int lifetime = 0, const bool depthTest = false );
 	virtual void			DebugArrow( const idVec4 &color, const idVec3 &start, const idVec3 &end, int size, const int lifetime = 0 );
 	virtual void			DebugWinding( const idVec4 &color, const idWinding &w, const idVec3 &origin, const idMat3 &axis, const int lifetime = 0, const bool depthTest = false );
 	virtual void			DebugCircle( const idVec4 &color, const idVec3 &origin, const idVec3 &dir, const float radius, const int numSteps, const int lifetime = 0, const bool depthTest = false );
 	virtual void			DebugSphere( const idVec4 &color, const idSphere &sphere, const int lifetime = 0, bool depthTest = false );
-	virtual void			DebugBounds( const idVec4 &color, const idBounds &bounds, const idVec3 &org = vec3_origin, const int lifetime = 0 );
+// RAVEN BEGIN - Quake 4 v37: DebugBounds gains depthTest; MemorySummary/ShowDebug*/DebugFOV inserted
+	virtual void			DebugBounds( const idVec4 &color, const idBounds &bounds, const idVec3 &org = vec3_origin, const int lifetime = 0, bool depthTest = false );
+	virtual size_t			MemorySummary( const idCmdArgs &args );
+	virtual void			ShowDebugLines( void );
+	virtual void			ShowDebugPolygons( void );
+	virtual void			ShowDebugText( void );
+	virtual void			DebugFOV( const idVec4 &color, const idVec3 &origin, const idVec3 &dir, float farDot, float farDist, float nearDot=1.0f, float nearDist=0.0f, float alpha=0.3f, int lifetime = 0 );
+// RAVEN END
 	virtual void			DebugBox( const idVec4 &color, const idBox &box, const int lifetime = 0 );
 	virtual void			DebugFrustum( const idVec4 &color, const idFrustum &frustum, const bool showFromOrigin = false, const int lifetime = 0 );
 	virtual void			DebugCone( const idVec4 &color, const idVec3 &apex, const idVec3 &dir, float radius1, float radius2, const int lifetime = 0 );
-	virtual void			DebugScreenRect( const idVec4 &color, const idScreenRect &rect, const viewDef_t *viewDef, const int lifetime = 0 );
 	virtual void			DebugAxis( const idVec3 &origin, const idMat3 &axis );
 
-	virtual void			DebugClearPolygons( int time );
 	virtual void			DebugPolygon( const idVec4 &color, const idWinding &winding, const int lifeTime = 0, const bool depthTest = false );
 
 	virtual void			DrawText( const char *text, const idVec3 &origin, float scale, const idVec4 &color, const idMat3 &viewAxis, const int align = 1, const int lifetime = 0, bool depthTest = false );
+
+	// non-virtual helper kept from D3 (not part of the idRenderWorld vtable)
+	void					DebugScreenRect( const idVec4 &color, const idScreenRect &rect, const viewDef_t *viewDef, const int lifetime = 0 );
 
 	//-----------------------
 
@@ -181,7 +216,8 @@ public:
 	int						CommonChildrenArea_r( areaNode_t *node );
 	void					FreeWorld();
 	void					ClearWorld();
-	void					FreeDefs();
+	// RAVEN/Q4 v37: renamed from FreeDefs() to avoid clashing with the new virtual FreeDefs() vtable slot.
+	void					FreeDefsInternal();
 	void					TouchWorldModels( void );
 	void					AddWorldModelEntities();
 	void					ClearPortalStates();
@@ -221,7 +257,8 @@ public:
 
 	void					StartWritingDemo( idDemoFile *demo );
 	void					StopWritingDemo();
-	bool					ProcessDemoCommand( idDemoFile *readDemo, renderView_t *demoRenderView, int *demoTimeOffset );
+	// RAVEN/Q4 v37: ProcessDemoCommand gained a portalSkyRenderView arg (matches the base vtable signature).
+	bool					ProcessDemoCommand( idDemoFile *readDemo, renderView_t *demoRenderView, renderView_t *portalSkyRenderView, int *demoTimeOffset );
 
 	void					WriteLoadMap();
 	void					WriteRenderView( const renderView_t *renderView );

@@ -109,7 +109,8 @@ bool idRenderWorldLocal::PortalIsFoggedOut( const portal_t *p ) {
 	int		size = sizeof( float ) *lightShader->GetNumRegisters();
 	float	*regs =(float *)_alloca( size );
 
-	lightShader->EvaluateRegisters( regs, ldef->parms.shaderParms, tr.viewDef, ldef->parms.referenceSound );
+	// RAVEN/Q4 v37: renderLight_t stores referenceSoundHandle(int), not an idSoundEmitter*; pass NULL.
+	lightShader->EvaluateRegisters( regs, ldef->parms.shaderParms, tr.viewDef, NULL );
 
 	const shaderStage_t	*stage = lightShader->GetStage(0);
 

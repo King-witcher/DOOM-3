@@ -55,6 +55,7 @@ public:
 	virtual bool				IsLevelLoadReferenced();
 	virtual void				TouchData();
 	virtual void				InitEmpty( const char *name );
+	virtual void				InitEmptyFromArgs( const char *name, idDict &Args );
 	virtual void				AddSurface( modelSurface_t surface );
 	virtual void				FinishSurfaces();
 	virtual void				FreeVertexCache();
@@ -62,7 +63,7 @@ public:
 	virtual void				Print() const;
 	virtual void				List() const;
 	virtual int					Memory() const;
-	virtual ID_TIME_T				Timestamp() const;
+	virtual unsigned int		Timestamp() const;
 	virtual int					NumSurfaces() const;
 	virtual int					NumBaseSurfaces() const;
 	virtual const modelSurface_t *Surface( int surfaceNum ) const;
@@ -73,7 +74,8 @@ public:
 	virtual dynamicModel_t		IsDynamicModel() const;
 	virtual bool				IsDefaultModel() const;
 	virtual bool				IsReloadable() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual bool				HasCollisionSurface( const struct renderEntity_s *ent ) const;
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual int					NumJoints( void ) const;
 	virtual const idMD5Joint *	GetJoints( void ) const;
 	virtual jointHandle_t		GetJointHandle( const char *name ) const;
@@ -81,9 +83,13 @@ public:
 	virtual const idJointQuat *	GetDefaultPose( void ) const;
 	virtual int					NearestJoint( int surfaceNum, int a, int b, int c ) const;
 	virtual idBounds			Bounds( const struct renderEntity_s *ent ) const;
-	virtual void				ReadFromDemoFile( class idDemoFile *f );
-	virtual void				WriteToDemoFile( class idDemoFile *f );
+	virtual void				ReadFromDemo( class idDemoFile *f );
+	virtual void				WriteToDemo( class idDemoFile *f );
 	virtual float				DepthHack() const;
+	virtual int					GetSurfaceMask ( const char* surface ) const;
+	virtual void				SetHasSky( bool on );
+	virtual bool				GetHasSky( void ) const;
+	virtual void				SetViewEntity( const struct viewEntity_s *ve );
 
 	void						MakeDefaultModel();
 	
@@ -119,6 +125,7 @@ protected:
 	bool						fastLoad;				// don't generate tangents and shadow data
 	bool						reloadable;				// if not, reloadModels won't check timestamp
 	bool						levelLoadReferenced;	// for determining if it needs to be freed
+	bool						hasSky;					// jscott: for portal skies
 	ID_TIME_T						timeStamp;
 
 	static idCVar				r_mergeModelSurfaces;	// combine model surfaces with the same material
@@ -175,7 +182,7 @@ public:
 	virtual void				PurgeModel();
 	virtual void				LoadModel();
 	virtual int					Memory() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual int					NumJoints( void ) const;
 	virtual const idMD5Joint *	GetJoints( void ) const;
 	virtual jointHandle_t		GetJointHandle( const char *name ) const;
@@ -209,7 +216,7 @@ class idRenderModelMD3 : public idRenderModelStatic {
 public:
 	virtual void				InitFromFile( const char *fileName );
 	virtual dynamicModel_t		IsDynamicModel() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual idBounds			Bounds( const struct renderEntity_s *ent ) const;
 
 private:
@@ -235,7 +242,7 @@ public:
 
 	virtual void				InitFromFile( const char *fileName );
 	virtual dynamicModel_t		IsDynamicModel() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual idBounds			Bounds( const struct renderEntity_s *ent ) const;
 
 	virtual void				Reset();
@@ -291,7 +298,7 @@ public:
 	virtual void				InitFromFile( const char *fileName );
 	virtual void				TouchData();
 	virtual dynamicModel_t		IsDynamicModel() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual idBounds			Bounds( const struct renderEntity_s *ent ) const;
 	virtual float				DepthHack() const;
 	virtual int					Memory() const;
@@ -312,7 +319,7 @@ class idRenderModelBeam : public idRenderModelStatic {
 public:
 	virtual dynamicModel_t		IsDynamicModel() const;
 	virtual bool				IsLoaded() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual idBounds			Bounds( const struct renderEntity_s *ent ) const;
 };
 
@@ -343,7 +350,7 @@ public:
 
 	virtual dynamicModel_t		IsDynamicModel() const;
 	virtual bool				IsLoaded() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual idBounds			Bounds( const struct renderEntity_s *ent ) const;
 
 	int							NewTrail( idVec3 pt, int duration );
@@ -363,7 +370,7 @@ class idRenderModelLightning : public idRenderModelStatic {
 public:
 	virtual dynamicModel_t		IsDynamicModel() const;
 	virtual bool				IsLoaded() const;
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual idBounds			Bounds( const struct renderEntity_s *ent ) const;
 };
 
@@ -378,7 +385,7 @@ class idRenderModelSprite : public idRenderModelStatic {
 public:
 	virtual	dynamicModel_t	IsDynamicModel() const;
 	virtual	bool			IsLoaded() const;
-	virtual	idRenderModel *	InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel );
+	virtual	idRenderModel *	InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION );
 	virtual	idBounds		Bounds( const struct renderEntity_s *ent ) const;
 };
 

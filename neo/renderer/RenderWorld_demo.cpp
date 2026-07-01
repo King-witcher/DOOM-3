@@ -216,7 +216,7 @@ bool		idRenderWorldLocal::ProcessDemoCommand( idDemoFile *readDemo, renderView_t
 	case DC_DEFINE_MODEL:
 		{
 		idRenderModel	*model = renderModelManager->AllocModel();
-		model->ReadFromDemoFile( session->readDemo );
+		model->ReadFromDemo( session->readDemo );
 		// add to model manager, so we can find it
 		renderModelManager->AddModel( model );
 

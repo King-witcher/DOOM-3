@@ -164,13 +164,44 @@ public:
 	const idMD5Joint *			parent;
 };
 
+// RAVEN BEGIN
+// AReis: Used for callback.
+class idRenderModel;
+typedef bool(*modelCallback_t)( idRenderModel *model, void *callbackData );
+
+// Used for Fluid Interaction.
+typedef struct fluidImpact_s {
+	idVec3						vAbsPos;	// The absolute position of the impact.
+	float						fForce;		// The force of the impact.
+	float						radius;
+} fluidImpact_t;
+
+// bdube: tag system
+typedef struct modelTag_s {
+	idStr			name;
+	idVec3			t;
+	idMat3			m;
+} modelTag_t;
+// RAVEN END
+
 
 // the init methods may be called again on an already created model when
 // a reloadModels is issued
 
 class idRenderModel {
 public:
-	virtual						~idRenderModel() {};
+// RAVEN BEGIN
+// AReis: Needed to send data to model.
+	// Callbacks to a model specified function.
+	modelCallback_t				callback;
+
+// AReis: Specific just to a fluid model.
+	// Dampen a grid element that intersects the world.
+	virtual void				DampenFluidGrid( int iX, int iY, float fAmount ) {}
+// RAVEN END
+
+	// purges all the data before deleting
+	virtual						~idRenderModel();
 
 	// Loads static models only, dynamic models must be loaded by the modelManager
 	virtual void				InitFromFile( const char *fileName ) = 0;
@@ -182,6 +213,12 @@ public:
 	// this is used for dynamically created surfaces, which are assumed to not be reloadable.
 	// It can be called again to clear out the surfaces of a dynamic model for regeneration.
 	virtual void				InitEmpty( const char *name ) = 0;
+
+// RAVEN BEGIN
+// AReis: Added this function for the height map model.
+	// Like InitEmpty but allows a set of arguments to be passed in through a dict.
+	virtual void				InitEmptyFromArgs( const char *name, idDict &Args ) = 0;
+// RAVEN END
 
 	// dynamic model instantiations will be created with this
 	// the geometry data will be owned by the model, and freed when it is freed
@@ -233,7 +270,7 @@ public:
 	virtual int					Memory() const = 0;
 
 	// for reloadModels
-	virtual ID_TIME_T				Timestamp() const = 0;
+	virtual unsigned int		Timestamp() const = 0;
 
 	// returns the number of surfaces
 	virtual int					NumSurfaces() const = 0;
@@ -279,6 +316,11 @@ public:
 	// returns value != 0.0f if the model requires the depth hack
 	virtual float				DepthHack() const = 0;
 
+// RAVEN BEGIN
+// dluetscher: added call to determine if a collision surface exists within this model
+	virtual bool				HasCollisionSurface( const struct renderEntity_s *ent ) const = 0;
+// RAVEN END
+
 	// returns a static model based on the definition and view
 	// currently, this will be regenerated for every view, even though
 	// some models, like character meshes, could be used for multiple (mirror)
@@ -286,7 +328,10 @@ public:
 	// The renderer will delete the returned dynamic model the next view
 	// This isn't const, because it may need to reload a purged model if it
 	// wasn't precached correctly.
-	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel ) = 0;
+// RAVEN BEGIN
+// dluetscher: added surface mask parameter
+	virtual idRenderModel *		InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask = ~SURF_COLLISION ) = 0;
+// RAVEN END
 
 	// Returns the number of joints or 0 if the model is not an MD5
 	virtual int					NumJoints( void ) const = 0;
@@ -307,8 +352,19 @@ public:
 	virtual int					NearestJoint( int surfaceNum, int a, int c, int b ) const = 0;
 
 	// Writing to and reading from a demo file.
-	virtual void				ReadFromDemoFile( class idDemoFile *f ) = 0;
-	virtual void				WriteToDemoFile( class idDemoFile *f ) = 0;
+	virtual void				ReadFromDemo( class idDemoFile *f ) = 0;
+	virtual void				WriteToDemo( class idDemoFile *f ) = 0;
+
+// RAVEN BEGIN
+// bdube: surface flag manipulation
+	virtual int					GetSurfaceMask ( const char* surface ) const = 0;
+
+// jscott: for portal skies
+	virtual void				SetHasSky( bool on ) = 0;
+	virtual bool				GetHasSky( void ) const = 0;
+// ddynerman: Wolf LOD code
+	virtual void				SetViewEntity( const struct viewEntity_s *ve ) = 0;
+// RAVEN END
 };
 
 #endif /* !__MODEL_H__ */

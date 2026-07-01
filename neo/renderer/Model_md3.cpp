@@ -272,7 +272,7 @@ void idRenderModelMD3::LerpMeshVertexes ( srfTriangles_t *tri, const struct md3S
 idRenderModelMD3::InstantiateDynamicModel
 =============
 */
-idRenderModel *idRenderModelMD3::InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel ) {
+idRenderModel *idRenderModelMD3::InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel , dword surfMask ) {
 	int				i, j;
 	float			backlerp;
 	int *			triangles;

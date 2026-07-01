@@ -39,6 +39,11 @@ If you have questions concerning this license or the applicable additional terms
 ===============================================================================
 */
 
+// RAVEN BEGIN
+// jscott: forward declaration needed by the tools-block CreateLightDef/FreeLightDef/CreateShadowVolume
+class idRenderLight;
+// RAVEN END
+
 class idRenderModelManager {
 public:
 	virtual					~idRenderModelManager() {}
@@ -48,6 +53,11 @@ public:
 
 	// frees all the models
 	virtual	void			Shutdown() = 0;
+
+// RAVEN BEGIN
+	// Reset list of models to initial state (destroys all models except the default models).
+	virtual void			Reset( void ) = 0;
+// RAVEN END
 
 	// called only by renderer::BeginLevelLoad
 	virtual void			BeginLevelLoad() = 0;
@@ -67,6 +77,26 @@ public:
 
 	// returns NULL if not loadable
 	virtual	idRenderModel *	CheckModel( const char *modelName ) = 0;
+
+// RAVEN BEGIN
+// jscott: for tools
+	virtual srfTriangles_t		*AllocStaticTriSurf( int verts, int indices ) = 0;
+	virtual void				FreeStaticTriSurf( srfTriangles_t *tris ) = 0;
+	virtual srfTriangles_t		*CopyStaticTriSurf( const srfTriangles_t *tri ) = 0;
+	virtual	srfTriangles_t		*PolytopeSurface( int numPlanes, const idPlane *planes, idWinding **windings ) = 0;
+	virtual void				CreateSilIndexes( srfTriangles_t *tris ) = 0;
+	virtual void				DeriveFacePlanes( srfTriangles_t *tris ) = 0;
+	virtual	void				BoundTriSurf( srfTriangles_t *tri ) = 0;
+	virtual	void				CleanupTriangles( srfTriangles_t *tris, bool createNormals, bool identifySilEdges, bool useUnsmoothedTangents, bool needSilMultiply ) = 0;
+	virtual	void				SimpleCleanupTriangles( srfTriangles_t *tri ) = 0;
+	virtual srfTriangles_t		*CreateShadowVolume( const srfTriangles_t *tri, const class idRenderLight *light, int optimize ) = 0;
+
+	virtual class idRenderLight	*CreateLightDef( void ) = 0;
+	virtual void				FreeLightDef( class idRenderLight *light ) = 0;
+
+// rjohnson: added debugging code to try and catch a free error
+	virtual	bool				CheckModel( idRenderModel *model ) = 0;
+// RAVEN END
 
 	// returns the default cube model
 	virtual	idRenderModel *	DefaultModel() = 0;
@@ -90,7 +120,13 @@ public:
 	virtual	void			FreeModelVertexCaches() = 0;
 
 	// print memory info
+	// NOTE: the v37 SDK declares this as PrintMemInfo( MemInfo* ); our MemInfo_t is the
+	// same type (ABI-identical pointer), so the slot/signature match.
 	virtual	void			PrintMemInfo( MemInfo_t *mi ) = 0;
+
+// RAVEN BEGIN
+	virtual size_t			ListModelSummary( void ) = 0;
+// RAVEN END
 };
 
 // this will be statically pointed at a private implementation

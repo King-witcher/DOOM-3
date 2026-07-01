@@ -40,10 +40,29 @@ public:
 
 	virtual void			Init();
 	virtual void			Shutdown();
+	virtual void			Reset( void );
 	virtual idRenderModel *	AllocModel();
 	virtual void			FreeModel( idRenderModel *model );
 	virtual idRenderModel *	FindModel( const char *modelName );
 	virtual idRenderModel *	CheckModel( const char *modelName );
+
+// RAVEN BEGIN
+// jscott: for tools
+	virtual srfTriangles_t		*AllocStaticTriSurf( int verts, int indices );
+	virtual void				FreeStaticTriSurf( srfTriangles_t *tris );
+	virtual srfTriangles_t		*CopyStaticTriSurf( const srfTriangles_t *tri );
+	virtual	srfTriangles_t		*PolytopeSurface( int numPlanes, const idPlane *planes, idWinding **windings );
+	virtual void				CreateSilIndexes( srfTriangles_t *tris );
+	virtual void				DeriveFacePlanes( srfTriangles_t *tris );
+	virtual	void				BoundTriSurf( srfTriangles_t *tri );
+	virtual	void				CleanupTriangles( srfTriangles_t *tris, bool createNormals, bool identifySilEdges, bool useUnsmoothedTangents, bool needSilMultiply );
+	virtual	void				SimpleCleanupTriangles( srfTriangles_t *tri );
+	virtual srfTriangles_t		*CreateShadowVolume( const srfTriangles_t *tri, const class idRenderLight *light, int optimize );
+	virtual class idRenderLight	*CreateLightDef( void );
+	virtual void				FreeLightDef( class idRenderLight *light );
+	virtual	bool				CheckModel( idRenderModel *model );
+// RAVEN END
+
 	virtual idRenderModel *	DefaultModel();
 	virtual void			AddModel( idRenderModel *model );
 	virtual void			RemoveModel( idRenderModel *model );
@@ -54,6 +73,7 @@ public:
 	virtual void			EndLevelLoad();
 
 	virtual	void			PrintMemInfo( MemInfo_t *mi );
+	virtual size_t			ListModelSummary( void );
 
 private:
 	idList<idRenderModel*>	models;
@@ -247,6 +267,17 @@ void idRenderModelManagerLocal::Shutdown() {
 
 /*
 =================
+idRenderModelManagerLocal::Reset
+
+RAVEN: Quake 4 calls this between levels to free non-default models. We don't
+maintain the incremental-creep machinery here, so leave the model list intact.
+=================
+*/
+void idRenderModelManagerLocal::Reset( void ) {
+}
+
+/*
+=================
 idRenderModelManagerLocal::GetModel
 =================
 */
@@ -395,6 +426,137 @@ idRenderModelManagerLocal::CheckModel
 idRenderModel *idRenderModelManagerLocal::CheckModel( const char *modelName ) {
 	return GetModel( modelName, false );
 }
+
+// RAVEN BEGIN
+// jscott: tools surface helpers exposed through the model manager for the Quake 4 v37 ABI.
+//         These are only invoked by editor/tool code paths; the engine itself uses the
+//         R_* helpers directly. We forward to the existing tr_trisurf.cpp helpers where the
+//         signatures line up and stub the rest.
+
+/*
+=================
+idRenderModelManagerLocal::AllocStaticTriSurf
+=================
+*/
+srfTriangles_t *idRenderModelManagerLocal::AllocStaticTriSurf( int verts, int indices ) {
+	srfTriangles_t *tri = R_AllocStaticTriSurf();
+	R_AllocStaticTriSurfVerts( tri, verts );
+	R_AllocStaticTriSurfIndexes( tri, indices );
+	return tri;
+}
+
+/*
+=================
+idRenderModelManagerLocal::FreeStaticTriSurf
+=================
+*/
+void idRenderModelManagerLocal::FreeStaticTriSurf( srfTriangles_t *tris ) {
+	R_FreeStaticTriSurf( tris );
+}
+
+/*
+=================
+idRenderModelManagerLocal::CopyStaticTriSurf
+=================
+*/
+srfTriangles_t *idRenderModelManagerLocal::CopyStaticTriSurf( const srfTriangles_t *tri ) {
+	return R_CopyStaticTriSurf( tri );
+}
+
+/*
+=================
+idRenderModelManagerLocal::PolytopeSurface
+=================
+*/
+srfTriangles_t *idRenderModelManagerLocal::PolytopeSurface( int numPlanes, const idPlane *planes, idWinding **windings ) {
+	return NULL;
+}
+
+/*
+=================
+idRenderModelManagerLocal::CreateSilIndexes
+=================
+*/
+void idRenderModelManagerLocal::CreateSilIndexes( srfTriangles_t *tris ) {
+	R_CreateSilIndexes( tris );
+}
+
+/*
+=================
+idRenderModelManagerLocal::DeriveFacePlanes
+=================
+*/
+void idRenderModelManagerLocal::DeriveFacePlanes( srfTriangles_t *tris ) {
+	R_DeriveFacePlanes( tris );
+}
+
+/*
+=================
+idRenderModelManagerLocal::BoundTriSurf
+=================
+*/
+void idRenderModelManagerLocal::BoundTriSurf( srfTriangles_t *tri ) {
+	R_BoundTriSurf( tri );
+}
+
+/*
+=================
+idRenderModelManagerLocal::CleanupTriangles
+=================
+*/
+void idRenderModelManagerLocal::CleanupTriangles( srfTriangles_t *tris, bool createNormals, bool identifySilEdges, bool useUnsmoothedTangents, bool needSilMultiply ) {
+	// our R_CleanupTriangles has no needSilMultiply parameter; ignore it
+	R_CleanupTriangles( tris, createNormals, identifySilEdges, useUnsmoothedTangents );
+}
+
+/*
+=================
+idRenderModelManagerLocal::SimpleCleanupTriangles
+=================
+*/
+void idRenderModelManagerLocal::SimpleCleanupTriangles( srfTriangles_t *tri ) {
+	R_CleanupTriangles( tri, false, false, false );
+}
+
+/*
+=================
+idRenderModelManagerLocal::CreateShadowVolume
+=================
+*/
+srfTriangles_t *idRenderModelManagerLocal::CreateShadowVolume( const srfTriangles_t *tri, const class idRenderLight *light, int optimize ) {
+	return NULL;
+}
+
+/*
+=================
+idRenderModelManagerLocal::CreateLightDef
+=================
+*/
+idRenderLight *idRenderModelManagerLocal::CreateLightDef( void ) {
+	return NULL;
+}
+
+/*
+=================
+idRenderModelManagerLocal::FreeLightDef
+=================
+*/
+void idRenderModelManagerLocal::FreeLightDef( idRenderLight *light ) {
+}
+
+/*
+=================
+idRenderModelManagerLocal::CheckModel
+rjohnson: returns true if the model pointer is a valid managed model.
+=================
+*/
+bool idRenderModelManagerLocal::CheckModel( idRenderModel *model ) {
+	if ( !model ) {
+		return false;
+	}
+	return models.FindIndex( model ) != -1;
+}
+// RAVEN END
 
 /*
 =================
@@ -619,4 +781,16 @@ void idRenderModelManagerLocal::PrintMemInfo( MemInfo_t *mi ) {
 
 	f->Printf( "\nTotal model bytes allocated: %s\n", idStr::FormatNumber( totalMem ).c_str() );
 	fileSystem->CloseFile( f );
+}
+
+/*
+=================
+idRenderModelManagerLocal::ListModelSummary
+
+RAVEN: appended to the v37 ABI. Returns the number of bytes consumed by all
+loaded models (0 is an acceptable stub for boot).
+=================
+*/
+size_t idRenderModelManagerLocal::ListModelSummary( void ) {
+	return 0;
 }

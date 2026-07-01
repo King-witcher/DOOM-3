@@ -46,6 +46,7 @@ idRenderModelStatic::idRenderModelStatic
 ================
 */
 idRenderModelStatic::idRenderModelStatic() {
+	callback = NULL;
 	name = "<undefined>";
 	bounds.Clear();
 	lastModifiedFrame = 0;
@@ -58,7 +59,18 @@ idRenderModelStatic::idRenderModelStatic() {
 	fastLoad = false;
 	reloadable = true;
 	levelLoadReferenced = false;
+	hasSky = false;
 	timeStamp = 0;
+}
+
+/*
+================
+idRenderModel::~idRenderModel
+
+RAVEN: out-of-line virtual destructor required to match the Quake 4 v37 ABI.
+================
+*/
+idRenderModel::~idRenderModel() {
 }
 
 /*
@@ -349,6 +361,18 @@ void idRenderModelStatic::InitEmpty( const char *fileName ) {
 
 /*
 ================
+idRenderModelStatic::InitEmptyFromArgs
+
+RAVEN (AReis): the SDK adds an InitEmptyFromArgs that takes a dict of args.
+The base static model has no special args, so just forward to InitEmpty.
+================
+*/
+void idRenderModelStatic::InitEmptyFromArgs( const char *name, idDict &Args ) {
+	InitEmpty( name );
+}
+
+/*
+================
 idRenderModelStatic::AddSurface
 ================
 */
@@ -373,7 +397,7 @@ const char *idRenderModelStatic::Name() const {
 idRenderModelStatic::Timestamp
 ================
 */
-ID_TIME_T idRenderModelStatic::Timestamp() const {
+unsigned int idRenderModelStatic::Timestamp() const {
 	return timeStamp;
 }
 
@@ -482,10 +506,21 @@ float idRenderModelStatic::DepthHack() const {
 
 /*
 ================
+idRenderModelStatic::HasCollisionSurface
+
+RAVEN (dluetscher): determine if a collision surface exists within this model.
+================
+*/
+bool idRenderModelStatic::HasCollisionSurface( const struct renderEntity_s *ent ) const {
+	return false;
+}
+
+/*
+================
 idRenderModelStatic::InstantiateDynamicModel
 ================
 */
-idRenderModel *idRenderModelStatic::InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel ) {
+idRenderModel *idRenderModelStatic::InstantiateDynamicModel( const struct renderEntity_s *ent, const struct viewDef_s *view, idRenderModel *cachedModel, dword surfMask ) {
 	if ( cachedModel ) {
 		delete cachedModel;
 		cachedModel = NULL;
@@ -2147,10 +2182,10 @@ void idRenderModelStatic::FreeVertexCache( void ) {
 
 /*
 ================
-idRenderModelStatic::ReadFromDemoFile
+idRenderModelStatic::ReadFromDemo
 ================
 */
-void idRenderModelStatic::ReadFromDemoFile( class idDemoFile *f ) {
+void idRenderModelStatic::ReadFromDemo( class idDemoFile *f ) {
 	PurgeModel();
 
 	InitEmpty( f->ReadHashString() );
@@ -2193,10 +2228,10 @@ void idRenderModelStatic::ReadFromDemoFile( class idDemoFile *f ) {
 
 /*
 ================
-idRenderModelStatic::WriteToDemoFile
+idRenderModelStatic::WriteToDemo
 ================
 */
-void idRenderModelStatic::WriteToDemoFile( class idDemoFile *f ) {
+void idRenderModelStatic::WriteToDemo( class idDemoFile *f ) {
 	int	data[1];
 
 	// note that it has been updated
@@ -2231,6 +2266,48 @@ void idRenderModelStatic::WriteToDemoFile( class idDemoFile *f ) {
 			f->WriteUnsignedChar( tri->verts[j].color[3] );
 		}
 	}
+}
+
+/*
+================
+idRenderModelStatic::GetSurfaceMask
+
+RAVEN (bdube): surface flag manipulation. Static models expose no named
+surface mask, so return 0.
+================
+*/
+int idRenderModelStatic::GetSurfaceMask( const char* surface ) const {
+	return 0;
+}
+
+/*
+================
+idRenderModelStatic::SetHasSky
+
+RAVEN (jscott): for portal skies.
+================
+*/
+void idRenderModelStatic::SetHasSky( bool on ) {
+	hasSky = on;
+}
+
+/*
+================
+idRenderModelStatic::GetHasSky
+================
+*/
+bool idRenderModelStatic::GetHasSky( void ) const {
+	return hasSky;
+}
+
+/*
+================
+idRenderModelStatic::SetViewEntity
+
+RAVEN (ddynerman): Wolf LOD code. No-op for static models.
+================
+*/
+void idRenderModelStatic::SetViewEntity( const struct viewEntity_s *ve ) {
 }
 
 /*

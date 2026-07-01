@@ -1276,12 +1276,14 @@ void idDeclManagerLocal::RegisterDeclFolder( const char *folder, const char *ext
 		declFolders.Append( declFolder );
 	}
 
-	// scan for decl files
-	fileList = fileSystem->ListFiles( declFolder->folder, declFolder->extension, true );
+	// scan for decl files -- Quake4 organizes decls into subfolders (def/weapons/,
+	// def/ai/, ...) so we must recurse. ListFilesTree returns full relative paths
+	// (already prefixed with the folder), unlike the flat ListFiles.
+	fileList = fileSystem->ListFilesTree( declFolder->folder, declFolder->extension, true );
 
 	// load and parse decl files
 	for ( i = 0; i < fileList->GetNumFiles(); i++ ) {
-		fileName = declFolder->folder + "/" + fileList->GetFile( i );
+		fileName = fileList->GetFile( i );
 
 		// check whether this file has already been loaded
 		for ( j = 0; j < loadedFiles.Num(); j++ ) {

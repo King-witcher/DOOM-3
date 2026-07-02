@@ -395,7 +395,7 @@ static bool R_ParseImageProgram_r( idLexer &src, byte **pic, int *width, int *he
 		src.ReadToken( &token );
 		AppendToken( token );
 		scale = token.GetFloatValue();
-		
+
 		// process it
 		if ( pic ) {
 			R_HeightmapToNormalMap( *pic, *width, *height, scale );
@@ -403,6 +403,24 @@ static bool R_ParseImageProgram_r( idLexer &src, byte **pic, int *width, int *he
 				*depth = TD_BUMP;
 			}
 		}
+
+		MatchAndAppendToken( src, ")" );
+		return true;
+	}
+
+	// Quake4: downsize( image, factor ) -- a texture-memory optimization hint.
+	// We load the inner image at full resolution and ignore the factor.
+	if ( !token.Icmp( "downsize" ) ) {
+		MatchAndAppendToken( src, "(" );
+
+		if ( !R_ParseImageProgram_r( src, pic, width, height, timestamps, depth ) ) {
+			return false;
+		}
+
+		MatchAndAppendToken( src, "," );
+
+		src.ReadToken( &token );
+		AppendToken( token );
 
 		MatchAndAppendToken( src, ")" );
 		return true;

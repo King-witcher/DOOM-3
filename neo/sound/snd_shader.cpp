@@ -306,6 +306,27 @@ bool idSoundShader::ParseShader( idLexer &src ) {
 			src.ParseFloat();
 			src.ReadToken( &token );
 		}
+		// RAVEN/Q4: expand to PCM regardless of length -- caching hint, consume
+		else if ( !token.Icmp( "frequentlyUsed" ) ) {
+		}
+		// RAVEN/Q4: VO-directed-at-player flag
+		else if ( !token.Icmp( "voForPlayer" ) ) {
+			parms.soundShaderFlags |= SSF_VO_FOR_PLAYER;
+		}
+		// RAVEN/Q4: don't generate shake data
+		else if ( !token.Icmp( "no_shakes" ) ) {
+			parms.shakes = 0.0f;
+		}
+		// RAVEN/Q4: frequencyshift <min>,<max> -- random pitch range; consume
+		else if ( !token.Icmp( "frequencyshift" ) ) {
+			src.ParseFloat();
+			src.ExpectTokenString( "," );
+			src.ParseFloat();
+		}
+		// RAVEN/Q4: don't offset the start position for looping sounds
+		else if ( !token.Icmp( "noRandomStart" ) ) {
+			parms.soundShaderFlags |= SSF_NO_RANDOMSTART;
+		}
 		// private
 		else if ( !token.Icmp( "private" ) ) {
 			parms.soundShaderFlags |= SSF_PRIVATE_SOUND;

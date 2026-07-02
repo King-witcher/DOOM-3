@@ -701,12 +701,45 @@ idStr idDeclFile::PreprocessGuides( const char *text, int textLength ) {
 		out.Append( text + copyFrom, beforeTok - copyFrom );
 
 		if ( token.Cmp( "inlineGuide" ) == 0 ) {
-			// a template definition embedded in a decl file: consume and drop
-			src.ReadToken( &name );
+			// an inline-template INVOCATION inside a material body:
+			//   inlineGuide <templateName> ( args... )
+			// NO braced body follows (the definitions live in guides/*.guide and were
+			// collected by ParseGuides). Expand the template body in place with the
+			// outer braces stripped so its stages paste into the enclosing material.
+			// (The old code assumed a definition and SkipBracedSection()'d, which ate
+			// the material's closing brace and silently dropped the rest of the file.)
+			src.ReadToken( &tmpl );
+			rvGuideTemplate *ig = declManagerLocal.FindGuide( tmpl.c_str() );
+
+			idStr inlineExpanded;
+			if ( ig != NULL ) {
+				inlineExpanded = ig->body;
+				int l = inlineExpanded.Find( '{' );
+				int r = inlineExpanded.Last( '}' );
+				if ( l >= 0 && r > l ) {
+					inlineExpanded = inlineExpanded.Mid( l + 1, r - l - 1 );
+				}
+			}
+
 			src.ExpectTokenString( "(" );
-			while ( src.ReadToken( &token ) && token.Cmp( ")" ) != 0 ) {}
-			src.SkipBracedSection();
+			int inlineParmIndex = 0;
+			while ( src.ReadToken( &token ) && token.Cmp( ")" ) != 0 ) {
+				if ( token.Cmp( "," ) == 0 ) {
+					continue;
+				}
+				if ( ig != NULL && inlineParmIndex < ig->parms.Num() ) {
+					inlineExpanded.Replace( ig->parms[inlineParmIndex].c_str(), token.c_str() );
+				}
+				inlineParmIndex++;
+			}
 			copyFrom = src.GetFileOffset();
+
+			if ( ig == NULL ) {
+				common->Warning( "inlineGuide template '%s' not found (in %s)", tmpl.c_str(), fileName.c_str() );
+			} else {
+				out += inlineExpanded;
+				out += "\n";
+			}
 			continue;
 		}
 

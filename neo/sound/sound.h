@@ -55,6 +55,14 @@ static const int	SSF_PLAY_ONCE =			BIT(6);	// never restart if already playing o
 static const int	SSF_UNCLAMPED =			BIT(7);	// don't clamp calculated volumes at 1.0
 static const int	SSF_NO_FLICKER =		BIT(8);	// always return 1.0 for volume queries
 static const int	SSF_NO_DUPS =			BIT(9);	// try not to play the same sound twice in a row
+// RAVEN/Quake4 flag bits (game reads these through soundShaderParms_t)
+static const int	SSF_USEDOPPLER =		BIT(10);	// allow doppler pitch shifting effects
+static const int	SSF_NO_RANDOMSTART =	BIT(11);	// don't offset the start position for looping sounds
+static const int	SSF_VO_FOR_PLAYER =		BIT(12);	// notifies a funcRadioChatter that this shader is directed at the player
+static const int	SSF_IS_VO =				BIT(13);	// this sound is VO
+static const int	SSF_CAUSE_RUMBLE =		BIT(14);	// causes joystick rumble
+static const int	SSF_CENTER =			BIT(15);	// sound through center channel only
+static const int	SSF_HILITE =			BIT(16);	// display debug info for this emitter
 
 // these options can be overriden from sound shader defaults on a per-emitter and per-channel basis
 // NOTE: binary layout is ABI-shared with the retail Quake4 gamex86.dll (v37): the game builds and

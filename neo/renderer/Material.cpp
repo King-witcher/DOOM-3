@@ -1003,6 +1003,11 @@ void idMaterial::ParseFragmentMap( idLexer &src, newShaderStage_t *newStage ) {
 			allowPicmip = false;
 			continue;
 		}
+		// Quake4 alias: don't downsize this image
+		if ( !token.Icmp( "nomips" ) ) {
+			allowPicmip = false;
+			continue;
+		}
 
 		// assume anything else is the image name
 		src.UnreadToken( &token );
@@ -1261,6 +1266,11 @@ void idMaterial::ParseStage( idLexer &src, const textureRepeat_t trpDefault ) {
 			continue;
 		}
 		if ( !token.Icmp( "nopicmip" ) ) {
+			allowPicmip = false;
+			continue;
+		}
+		// Quake4 alias: don't downsize this stage's images
+		if ( !token.Icmp( "nomips" ) ) {
 			allowPicmip = false;
 			continue;
 		}
@@ -2050,6 +2060,25 @@ void idMaterial::ParseMaterial( idLexer &src ) {
 
 			// noShadows
 			SetMaterialFlag( MF_NOSHADOWS );
+			continue;
+		}
+		// Quake4: materialType <typeName> -- surface-type decl for impact effects.
+		// Consume the type name; without the BSE effects system it has no renderer use.
+		else if ( !token.Icmp( "materialType" ) ) {
+			src.ReadTokenOnLine( &token );
+			continue;
+		}
+		// Quake4: materialImage <imagePath> -- per-material hit-location image
+		else if ( !token.Icmp( "materialImage" ) ) {
+			src.ReadTokenOnLine( &token );
+			continue;
+		}
+		// Quake4: projectileClip content flag (like playerclip, for projectiles)
+		else if ( !token.Icmp( "projectileClip" ) ) {
+			continue;
+		}
+		// Quake4: material samples _currentRender (post-process style)
+		else if ( !token.Icmp( "needCurrentRender" ) ) {
 			continue;
 		}
 		else if ( token == "{" ) {

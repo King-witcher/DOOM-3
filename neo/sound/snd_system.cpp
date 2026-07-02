@@ -1565,9 +1565,11 @@ int idSoundSystemLocal::AllocSoundEmitter( int worldId ) {
 	if ( currentSoundWorld ) {
 		idSoundEmitter *emitter = currentSoundWorld->AllocSoundEmitter();
 		if ( emitter ) {
+			{ extern bool g_q4Trace; if ( g_q4Trace ) common->Printf( "[Q4snd] AllocSoundEmitter(w%d) -> idx %d (world %p)\n", worldId, emitter->Index(), currentSoundWorld ); }
 			return emitter->Index();
 		}
 	}
+	{ extern bool g_q4Trace; if ( g_q4Trace ) common->Printf( "[Q4snd] AllocSoundEmitter(w%d) -> 0 (no world/emitter)\n", worldId ); }
 	return 0;
 }
 
@@ -1592,6 +1594,14 @@ idSoundSystemLocal::EmitterForIndex
 */
 idSoundEmitter *idSoundSystemLocal::EmitterForIndex( int worldId, int index ) {
 	if ( currentSoundWorld ) {
+		// the D3 world accessor only rejects 0 and >=Num(); a negative or otherwise
+		// out-of-range handle from the game would read garbage off the list, so
+		// validate here and report instead of handing the game a wild pointer
+		if ( index < 0 || index >= currentSoundWorld->emitters.Num() ) {
+			extern bool g_q4Trace;
+			if ( g_q4Trace ) common->Printf( "[Q4snd] EmitterForIndex(w%d, %d) OUT OF RANGE (num=%d world=%p)\n", worldId, index, currentSoundWorld->emitters.Num(), currentSoundWorld );
+			return NULL;
+		}
 		return currentSoundWorld->EmitterForIndex( index );
 	}
 	return NULL;

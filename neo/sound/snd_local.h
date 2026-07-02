@@ -442,25 +442,31 @@ public:
 	// the "time" parameters should be game time in msec, which is used to make queries
 	// return deterministic values regardless of async buffer scheduling
 
-	// a non-immediate free will let all currently playing sounds complete
-	virtual void		Free( bool immediate );
-
 	// the parms specified will be the default overrides for all sounds started on this emitter.
-	// NULL is acceptable for parms
-	virtual void		UpdateEmitter( const idVec3 &origin, int listenerId, const soundShaderParms_t *parms );
+	// NULL is acceptable for parms. Quake4 v37 signature; velocity is accepted and ignored.
+	virtual void		UpdateEmitter( const idVec3 &origin, const idVec3 &velocity, int listenerId, const soundShaderParms_t *parms );
 
 	// returns the length of the started sound in msec
-	virtual int			StartSound( const idSoundShader *shader, const s_channelType channel, float diversity = 0, int shaderFlags = 0, bool allowSlow = true /* D3XP */ );
+	virtual int			StartSound( const idSoundShader *shader, const s_channelType channel, float diversity = 0.0f, int shaderFlags = 0 );
 
 	// can pass SCHANNEL_ANY
 	virtual void		ModifySound( const s_channelType channel, const soundShaderParms_t *parms );
 	virtual void		StopSound( const s_channelType channel );
 	virtual void		FadeSound( const s_channelType channel, float to, float over );
 
-	virtual bool		CurrentlyPlaying( void ) const;
+	virtual bool		CurrentlyPlaying( const s_channelType channel = SCHANNEL_ANY ) const;
 
 	// can pass SCHANNEL_ANY
-	virtual	float		CurrentAmplitude( void );
+	virtual	float		CurrentAmplitude( int channelFlags = -1, bool factorDistance = false );
+
+	// Quake4 v37 additions
+	virtual bool		AttachedToWorld( int id ) const;
+	virtual	int			Handle( void ) const;
+
+	// ---- engine-internal (appended after the v37 game-visible block) ----
+
+	// a non-immediate free will let all currently playing sounds complete
+	virtual void		Free( bool immediate );
 
 	// used for save games
 	virtual	int			Index( void ) const;

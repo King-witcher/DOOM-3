@@ -57,13 +57,19 @@ static const int	SSF_NO_FLICKER =		BIT(8);	// always return 1.0 for volume queri
 static const int	SSF_NO_DUPS =			BIT(9);	// try not to play the same sound twice in a row
 
 // these options can be overriden from sound shader defaults on a per-emitter and per-channel basis
+// NOTE: binary layout is ABI-shared with the retail Quake4 gamex86.dll (v37): the game builds and
+// reads these structs across the interface, so field order/size must match the Q4 SDK exactly.
 typedef struct {
 	float					minDistance;
 	float					maxDistance;
 	float					volume;					// in dB, unfortunately.  Negative values get quieter
+	float					attenuatedVolume;		// Quake4: volume after distance attenuation
 	float					shakes;
 	int						soundShaderFlags;		// SSF_* bit flags
 	int						soundClass;				// for global fading of sounds
+	float					frequencyShift;			// Quake4: pitch shift
+	float					wetLevel;				// Quake4: reverb send level
+	float					dryLevel;				// Quake4: direct path level
 } soundShaderParms_t;
 
 
@@ -147,21 +153,21 @@ static const int SCHANNEL_ONE = 1;	// any following integer can be used as a cha
 typedef int s_channelType;	// the game uses its own series of enums, and we don't want to require casts
 
 
+// NOTE: slots 0-9 are ABI-aligned to the retail Quake4 1.4.2 SDK (v37): the stock gamex86.dll
+// calls UpdateEmitter@1, StartSound@2, ..., Handle@9 by these exact indices. Q4 dropped the D3
+// Free() slot (freeing goes through idSoundSystem::FreeSoundEmitter) and added velocity to
+// UpdateEmitter, channel args to CurrentlyPlaying/CurrentAmplitude, and AttachedToWorld/Handle.
+// Engine-internal extras (Free/Index) are APPENDED after the v37 block where the game never looks.
 class idSoundEmitter {
 public:
 	virtual					~idSoundEmitter( void ) {}
 
-	// a non-immediate free will let all currently playing sounds complete
-	// soundEmitters are not actually deleted, they are just marked as
-	// reusable by the soundWorld
-	virtual void			Free( bool immediate ) = 0;
-
 	// the parms specified will be the default overrides for all sounds started on this emitter.
-	// NULL is acceptable for parms
-	virtual void			UpdateEmitter( const idVec3 &origin, int listenerId, const soundShaderParms_t *parms ) = 0;
+	// NULL is acceptable for parms. Quake4 added the velocity (for doppler); we accept and ignore it.
+	virtual void			UpdateEmitter( const idVec3 &origin, const idVec3 &velocity, int listenerId, const soundShaderParms_t *parms ) = 0;
 
 	// returns the length of the started sound in msec
-	virtual int				StartSound( const idSoundShader *shader, const s_channelType channel, float diversity = 0, int shaderFlags = 0, bool allowSlow = true ) = 0;
+	virtual int				StartSound( const idSoundShader *shader, const s_channelType channel, float diversity = 0.0f, int shaderFlags = 0 ) = 0;
 
 	// pass SCHANNEL_ANY to effect all channels
 	virtual void			ModifySound( const s_channelType channel, const soundShaderParms_t *parms ) = 0;
@@ -172,12 +178,25 @@ public:
 	// returns true if there are any sounds playing from this emitter.  There is some conservative
 	// slop at the end to remove inconsistent race conditions with the sound thread updates.
 	// FIXME: network game: on a dedicated server, this will always be false
-	virtual bool			CurrentlyPlaying( void ) const = 0;
+	virtual bool			CurrentlyPlaying( const s_channelType channel = SCHANNEL_ANY ) const = 0;
 
 	// returns a 0.0 to 1.0 value based on the current sound amplitude, allowing
 	// graphic effects to be modified in time with the audio.
 	// just samples the raw wav file, it doesn't account for volume overrides in the
-	virtual	float			CurrentAmplitude( void ) = 0;
+	virtual	float			CurrentAmplitude( int channelFlags = -1, bool factorDistance = false ) = 0;
+
+	// Quake4: whether this emitter is attached to the world with the given id
+	virtual bool			AttachedToWorld( int id ) const = 0;
+
+	// Quake4: the emitter's handle (same value the D3 Index() returned)
+	virtual	int				Handle( void ) const = 0;
+
+	// ---- engine-internal, beyond the v37 game-visible vtable ----
+
+	// a non-immediate free will let all currently playing sounds complete
+	// soundEmitters are not actually deleted, they are just marked as
+	// reusable by the soundWorld
+	virtual void			Free( bool immediate ) = 0;
 
 	// for save games.  Index will always be > 0
 	virtual	int				Index( void ) const = 0;

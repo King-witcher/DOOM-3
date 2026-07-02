@@ -1384,7 +1384,7 @@ void Entity_UpdateSoundEmitter( entity_t *ent ) {
 					ent->soundEmitter = g_qeglobals.sw->AllocSoundEmitter();
 				}
 				playing = true;
-				ent->soundEmitter->UpdateEmitter( ent->origin, 0, &sound.parms );
+				ent->soundEmitter->UpdateEmitter( ent->origin, vec3_origin, 0, &sound.parms );
 				// always play on a single channel, so updates always override
 				ent->soundEmitter->StartSound( sound.shader, SCHANNEL_ONE );
 			}

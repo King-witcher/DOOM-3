@@ -310,6 +310,7 @@ void idSoundWorldLocal::ProcessDemoCommand( idDemoFile *readDemo ) {
 			idVec3 origin;
 			int listenerId;
 			soundShaderParms_t parms;
+			memset( &parms, 0, sizeof( parms ) );	// demos only carry the D3-era fields
 
 			readDemo->ReadInt( index );
 			readDemo->ReadVec3( origin );
@@ -320,7 +321,7 @@ void idSoundWorldLocal::ProcessDemoCommand( idDemoFile *readDemo ) {
 			readDemo->ReadFloat( parms.shakes );
 			readDemo->ReadInt( parms.soundShaderFlags );
 			readDemo->ReadInt( parms.soundClass );
-			EmitterForIndex( index )->UpdateEmitter( origin, listenerId, &parms );
+			EmitterForIndex( index )->UpdateEmitter( origin, vec3_origin, listenerId, &parms );
 		}
 		break;
 	case SCMD_START:
@@ -342,6 +343,7 @@ void idSoundWorldLocal::ProcessDemoCommand( idDemoFile *readDemo ) {
 		{
 			int		channel;
 			soundShaderParms_t parms;
+			memset( &parms, 0, sizeof( parms ) );	// demos only carry the D3-era fields
 
 			readDemo->ReadInt( index );
 			readDemo->ReadInt( channel );

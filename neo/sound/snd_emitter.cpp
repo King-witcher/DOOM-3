@@ -419,6 +419,27 @@ void idSoundEmitterLocal::OverrideParms( const soundShaderParms_t *base,
 		out->soundClass = base->soundClass;
 	}
 	out->soundShaderFlags = base->soundShaderFlags | over->soundShaderFlags;
+	// Quake4 v37 additions -- same nonzero-wins override rule
+	if ( over->attenuatedVolume ) {
+		out->attenuatedVolume = over->attenuatedVolume;
+	} else {
+		out->attenuatedVolume = base->attenuatedVolume;
+	}
+	if ( over->frequencyShift ) {
+		out->frequencyShift = over->frequencyShift;
+	} else {
+		out->frequencyShift = base->frequencyShift;
+	}
+	if ( over->wetLevel ) {
+		out->wetLevel = over->wetLevel;
+	} else {
+		out->wetLevel = base->wetLevel;
+	}
+	if ( over->dryLevel ) {
+		out->dryLevel = over->dryLevel;
+	} else {
+		out->dryLevel = base->dryLevel;
+	}
 }
 
 /*
@@ -590,7 +611,7 @@ PUBLIC FUNCTIONS
 idSoundEmitterLocal::UpdateEmitter
 =====================
 */
-void idSoundEmitterLocal::UpdateEmitter( const idVec3 &origin, int listenerId, const soundShaderParms_t *parms ) {
+void idSoundEmitterLocal::UpdateEmitter( const idVec3 &origin, const idVec3 &velocity, int listenerId, const soundShaderParms_t *parms ) {
 	if ( !parms ) {
 		common->Error( "idSoundEmitterLocal::UpdateEmitter: NULL parms" );
 	}
@@ -651,7 +672,8 @@ idSoundEmitterLocal::StartSound
 returns the length of the started sound in msec
 =====================
 */
-int idSoundEmitterLocal::StartSound( const idSoundShader *shader, const s_channelType channel, float diversity, int soundShaderFlags, bool allowSlow ) {
+int idSoundEmitterLocal::StartSound( const idSoundShader *shader, const s_channelType channel, float diversity, int soundShaderFlags ) {
+	const bool allowSlow = true;	// Quake4 v37 dropped the D3XP allowSlow arg
 	int i;
 
 	if ( !shader ) {
@@ -1025,7 +1047,8 @@ void idSoundEmitterLocal::FadeSound( const s_channelType channel, float to, floa
 idSoundEmitterLocal::CurrentlyPlaying
 ===================
 */
-bool idSoundEmitterLocal::CurrentlyPlaying( void ) const {
+bool idSoundEmitterLocal::CurrentlyPlaying( const s_channelType channel ) const {
+	// Quake4 v37 signature; the per-channel query degrades to the emitter-wide answer
 	return playing;
 }
 
@@ -1040,13 +1063,35 @@ int	idSoundEmitterLocal::Index( void ) const {
 
 /*
 ===================
+idSoundEmitterLocal::AttachedToWorld
+
+Quake4 v37: whether this emitter belongs to the world with the given id
+===================
+*/
+bool idSoundEmitterLocal::AttachedToWorld( int id ) const {
+	return soundWorld != NULL;
+}
+
+/*
+===================
+idSoundEmitterLocal::Handle
+
+Quake4 v37: the game-visible handle (same value as the D3 Index)
+===================
+*/
+int	idSoundEmitterLocal::Handle( void ) const {
+	return index;
+}
+
+/*
+===================
 idSoundEmitterLocal::CurrentAmplitude
 
 this is called from the main thread by the material shader system
 to allow lights and surface flares to vary with the sound amplitude
 ===================
 */
-float idSoundEmitterLocal::CurrentAmplitude( void ) {
+float idSoundEmitterLocal::CurrentAmplitude( int channelFlags, bool factorDistance ) {
 	if ( idSoundSystemLocal::s_constantAmplitude.GetFloat() >= 0.0f ) {
 		return idSoundSystemLocal::s_constantAmplitude.GetFloat();
 	}

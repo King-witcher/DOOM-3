@@ -1601,9 +1601,10 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal *sound, idSo
 		return;
 	}
 
-	float maxd = parms->maxDistance;
-	float mind = parms->minDistance;
-	
+	// Quake4 min/maxDistance are in game units; dlen below is in meters
+	float maxd = parms->maxDistance * DOOM_TO_METERS;
+	float mind = parms->minDistance * DOOM_TO_METERS;
+
 	int  mask = shader->speakerMask;
 	bool omni = ( parms->soundShaderFlags & SSF_OMNIDIRECTIONAL) != 0;
 	bool looping = ( parms->soundShaderFlags & SSF_LOOPING ) != 0;
@@ -1988,10 +1989,10 @@ float idSoundWorldLocal::FindAmplitude( idSoundEmitterLocal *sound, const int lo
 				volume *= shakes;
 			}
 
-			if ( listenerPosition && !( parms->soundShaderFlags & SSF_GLOBAL )  ) {			
-				// check for overrides
-				float maxd = parms->maxDistance;
-				float mind = parms->minDistance;
+			if ( listenerPosition && !( parms->soundShaderFlags & SSF_GLOBAL )  ) {
+				// check for overrides -- Quake4 distances are in game units, dlen in meters
+				float maxd = parms->maxDistance * DOOM_TO_METERS;
+				float mind = parms->minDistance * DOOM_TO_METERS;
 
 				if ( dlen >= maxd ) {
 					volume = 0.0f;

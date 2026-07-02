@@ -13,7 +13,7 @@ public class Cap {
 "@
 $HWND_TOPMOST = New-Object IntPtr(-1)
 $exe = "C:\code\id\DOOM-3\build\Win32\Release\DOOM3.exe"
-$argv = @("+set","fs_basepath","C:\code\id\DOOM-3\run\q4","+set","fs_game","q4base","+set","fs_savepath","C:\code\id\DOOM-3\run\q4save","+set","si_pure","0","+set","fs_restrict","0","+set","com_allowConsole","1","+set","logFile","2","+set","r_fullscreen","0","+set","image_usePrecompressedTextures","0","+set","r_windowX","2000","+set","r_windowY","60","+set","g_skill","1","+set","com_forceGenericSIMD","1","+map","$Map")
+$argv = @("+set","fs_basepath","C:\code\id\DOOM-3\run\q4","+set","fs_game","q4base","+set","fs_savepath","C:\code\id\DOOM-3\run\q4save","+set","si_pure","0","+set","fs_restrict","0","+set","com_allowConsole","1","+set","logFile","2","+set","r_fullscreen","0","+set","image_usePrecompressedTextures","0","+set","r_windowX","2000","+set","r_windowY","60","+set","g_skill","1","+set","in_alwaysRun","1","+set","com_forceGenericSIMD","1","+map","$Map")
 $psi = New-Object System.Diagnostics.ProcessStartInfo
 $psi.FileName = $exe; $psi.WorkingDirectory = Split-Path $exe; $psi.UseShellExecute = $false
 $psi.Arguments = ($argv -join ' ')

@@ -546,8 +546,11 @@ void idSoundEmitterLocal::Spatialize( idVec3 listenerPos, int listenerArea, idRe
 		if ( !chan->triggerState ) {
 			continue;
 		}
-		if ( chan->parms.maxDistance > maxDistance ) {
-			maxDistance = chan->parms.maxDistance;
+		// Quake4 shaders/entities express min/maxDistance in GAME UNITS (393.7 = 10m),
+		// not the meters Doom3 used; convert once here so the member and everything
+		// downstream (portal spatialization, culling, s_drawSounds) stays in meters
+		if ( chan->parms.maxDistance * DOOM_TO_METERS > maxDistance ) {
+			maxDistance = chan->parms.maxDistance * DOOM_TO_METERS;
 		}
 	}
 

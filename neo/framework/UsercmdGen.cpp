@@ -750,7 +750,9 @@ void idUsercmdGenLocal::InitCurrent( void ) {
 	cmd.realTime = Sys_Milliseconds();	// Quake4 v37 field
 	cmd.flags = flags;
 	cmd.impulse = impulse;
-	cmd.buttons |= ( in_alwaysRun.GetBool() && idAsyncNetwork::IsActive() ) ? BUTTON_RUN : 0;
+	// Quake4: in_alwaysRun applies locally too (Doom3 gated it to async-network
+	// games because SP had stamina; Q4 multiplayer always runs)
+	cmd.buttons |= in_alwaysRun.GetBool() ? BUTTON_RUN : 0;
 	cmd.buttons |= in_freeLook.GetBool() ? BUTTON_MLOOK : 0;
 }
 

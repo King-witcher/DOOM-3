@@ -7,3 +7,4 @@ q4
 .vscode/q4-trace.txt
 .vscode/q4-crash.txt
 .vscode/q4menu.png
+.vscode/*.png

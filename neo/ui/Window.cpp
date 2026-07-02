@@ -248,7 +248,21 @@ void idWindow::CleanUp() {
 
 	// ensure the register list gets cleaned up
 	regList.Reset ( );
-	
+
+	// ops reference winvars owned by definedVars/children; clear them together or a
+	// re-parse (Parse with rebuild, which lands here) leaves ops[i].a dangling on freed
+	// winvars and EvaluateRegisters pure-calls idWinVar::x(). Mirrors UpdateFromDictionary.
+	expressionRegisters.Clear();
+	ops.Clear();
+
+	// updateVars holds raw pointers into definedVars and into the simple windows'
+	// member vars (SimpleWindow.cpp AddUpdateVar(&text/&rect/...)), all freed below;
+	// a stale entry makes UpdateWinVars() pure-call idWinVar::Update() after a re-parse
+	updateVars.Clear();
+
+	// same hazard: idTransitionData::data points at winvars freed below
+	transitions.Clear();
+
 	// Cleanup the named events
 	namedEvents.DeleteContents(true);
 
@@ -2984,6 +2998,9 @@ int idWindow::ParseTerm( idParser *src,	idWinVar *var, int component ) {
 			return EmitOp(a, b, WOP_TYPE_VAR);
 		} else if (dynamic_cast<idWinFloat*>(var)) {
 			return EmitOp(a, b, WOP_TYPE_VARF);
+		} else if (dynamic_cast<idWinFloatMember*>(var)) {
+			// RAVEN: component member (e.g. "matcolor_w") gets its own opcode
+			return EmitOp(a, b, WOP_TYPE_VARFM);
 		} else if (dynamic_cast<idWinInt*>(var)) {
 			return EmitOp(a, b, WOP_TYPE_VARI);
 		} else if (dynamic_cast<idWinBool*>(var)) {
@@ -3221,6 +3238,15 @@ void idWindow::EvaluateRegisters(float *registers) {
 			if (op->a) {
 				idWinFloat *var = (idWinFloat*)(op->a);
 				registers[op->c] = *var;
+			} else {
+				registers[op->c] = 0;
+			}
+			break;
+		case WOP_TYPE_VARFM:
+			// RAVEN: single component of a vec4/rect var ("matcolor_w" etc.)
+			if (op->a) {
+				idWinFloatMember *var = (idWinFloatMember*)(op->a);
+				registers[op->c] = var->x();
 			} else {
 				registers[op->c] = 0;
 			}
@@ -3962,6 +3988,11 @@ void idWindow::FixupParms() {
 			delete []p;
 			ops[i].a = (int)var;
 			ops[i].b = -1;
+			// RAVEN: a deferred name may resolve to a component member; re-tag the
+			// op so EvaluateRegisters dispatches it through the member-safe case
+			if (dynamic_cast<idWinFloatMember*>(var)) {
+				ops[i].opType = WOP_TYPE_VARFM;
+			}
 		}
 	}
 	

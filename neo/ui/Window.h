@@ -96,7 +96,10 @@ typedef enum {
 	WOP_TYPE_VARF,
 	WOP_TYPE_VARI,
 	WOP_TYPE_VARB,
-	WOP_TYPE_COND
+	WOP_TYPE_COND,
+	// RAVEN: single-component access into a vec4/rect winvar (idWinFloatMember),
+	// used by Quake 4 guis (e.g. "matcolor_w" fades)
+	WOP_TYPE_VARFM
 } wexpOpType_t;
 
 typedef enum {

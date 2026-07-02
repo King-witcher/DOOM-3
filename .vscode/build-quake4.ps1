@@ -51,4 +51,12 @@ if ( -not (Test-Path $retail) ) {
     throw "retail Quake 4 gamex86.dll not found at '$retail' -- pass -Q4Dir <Quake 4 install root>"
 }
 Copy-Item $retail (Join-Path $outDir "gamex86.dll") -Force
+
+# Deploy the stock DOOM3 ARB programs as loose files in the savepath: Quake 4's
+# paks carry Raven-modified glprogs (their interaction.vfp renders black on this
+# engine's ARB2 backend); loose files take precedence over pak contents.
+$glDst = Join-Path $Root "run\q4save\q4base\glprogs"
+New-Item -ItemType Directory -Force $glDst | Out-Null
+Copy-Item (Join-Path $Root "base\glprogs\*") $glDst -Force
+
 Write-Host "Quake 4 build complete -> $outDir\DOOM3.exe ; retail gamex86.dll deployed (GAME_API_VERSION 37)"

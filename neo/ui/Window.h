@@ -185,6 +185,11 @@ public:
 		ON_ENTER,
 		ON_ENTERRELEASE,
 		ON_BACKACTION,		// RAVEN/Q4: fired on the menu "back" action
+		ON_TABRELEASE,		// RAVEN/Q4
+		ON_GAINFOCUS,		// RAVEN/Q4
+		ON_LOSEFOCUS,		// RAVEN/Q4
+		ON_SELCHANGE,		// RAVEN/Q4
+		ON_INIT,			// RAVEN/Q4: runs once when the gui initializes
 		SCRIPT_COUNT
 	};
 
@@ -304,6 +309,7 @@ public:
 	bool ParseScript(idParser *src, idGuiScriptList &list, int *timeParm = NULL, bool allowIf = false);
 	bool RunScript(int n);
 	bool RunScriptList(idGuiScriptList *src);
+	void Init();				// RAVEN/Q4: run onInit scripts recursively after the gui is built
 	void SetRegs(const char *key, const char *val);
 	int ParseExpression( idParser *src, idWinVar *var = NULL, int component = 0 );
 	int ExpressionConstant(float f);

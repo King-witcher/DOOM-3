@@ -315,8 +315,11 @@ bool idUserInterfaceLocal::InitFromFile( const char *qpath, bool rebuild, bool c
 
 	if ( src.IsLoaded() ) {
 		idToken token;
+		int topLevelParses = 0;
 		while( src.ReadToken( &token ) ) {
 			if ( idStr::Icmp( token, "windowDef" ) == 0 ) {
+				topLevelParses++;
+				{ extern bool g_q4Trace; if ( g_q4Trace && topLevelParses > 1 ) common->Printf( "[Q4gui5] %s: RE-PARSING desktop (top-level windowDef #%d at line %d) -- parser desynced out of the first windowDef body\n", qpath, topLevelParses, src.GetLineNum() ); }
 				desktop->SetDC( &uiManagerLocal.dc );
 				desktop->Parse( &src, rebuild );
 				// The root window IS the desktop whether or not every nested
@@ -327,9 +330,13 @@ bool idUserInterfaceLocal::InitFromFile( const char *qpath, bool rebuild, bool c
 				desktop->FixupParms();
 				continue;
 			}
+			{ extern bool g_q4Trace; if ( g_q4Trace ) common->Printf( "[Q4gui5] %s: stray top-level token '%s' at line %d\n", qpath, token.c_str(), src.GetLineNum() ); }
 		}
 
 		state.Set( "name", qpath );
+
+		// RAVEN/Q4: fire the onInit scripts now that the tree is parsed + fixed up
+		desktop->Init();
 	} else {
 		desktop->SetDC( &uiManagerLocal.dc );
 		desktop->SetFlag( WIN_DESKTOP );

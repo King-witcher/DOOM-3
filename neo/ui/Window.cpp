@@ -102,7 +102,13 @@ const char *idWindow::ScriptNames[] = {
 	"onActionRelease",
 	"onEnter",
 	"onEnterRelease",
-	"onBackAction"
+	"onBackAction",
+	// RAVEN/Q4 events (order must match the ON_ enum in Window.h)
+	"onTabRelease",
+	"onGainFocus",
+	"onLoseFocus",
+	"onSelChange",
+	"onInit"
 };
 
 /*
@@ -1884,15 +1890,19 @@ idWinVar *idWindow::GetWinVarByName(const char *_name, bool fixup, drawWin_t** o
 			idStr var = key.Right(key.Length() - n - 2);
 			drawWin_t *win = GetGui()->GetDesktop()->FindChildByName(winName);
 			if (win) {
+				idWinVar *crossVar;
 				if (win->win) {
-					return win->win->GetWinVarByName(var, false, owner);
+					crossVar = win->win->GetWinVarByName(var, false, owner);
 				} else {
 					if ( owner ) {
 						*owner = win;
 					}
-					return win->simp->GetWinVarByName(var);
+					crossVar = win->simp->GetWinVarByName(var);
 				}
-			} 
+				{ extern bool g_q4Trace; if ( g_q4Trace && !crossVar ) common->Printf( "[Q4gui] '%s': window '%s' found (%s) but var '%s' missing (gui %s)\n", _name, winName.c_str(), win->win ? "win" : "simp", var.c_str(), GetGui()->GetSourceFile() ); }
+				return crossVar;
+			}
+			{ extern bool g_q4Trace; if ( g_q4Trace ) common->Printf( "[Q4gui] '%s': window '%s' NOT FOUND (gui %s)\n", _name, winName.c_str(), GetGui()->GetSourceFile() ); }
 		}
 	}
 
@@ -2802,6 +2812,20 @@ bool idWindow::RunScript(int n) {
 		return RunScriptList(scripts[n]);
 	}
 	return false;
+}
+
+/*
+================
+idWindow::Init
+
+RAVEN/Q4: run the onInit scripts once the whole gui is parsed and fixed up
+================
+*/
+void idWindow::Init() {
+	RunScript( ON_INIT );
+	for ( int i = 0; i < children.Num(); i++ ) {
+		children[i]->Init();
+	}
 }
 
 /*

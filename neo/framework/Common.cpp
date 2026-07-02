@@ -2846,7 +2846,8 @@ void idCommonLocal::LoadGameDLL( void ) {
 		common->Printf( "[Quake4] >>> calling game->Init( allocator )...\n" );
 		g_q4Trace = true;
 		game->Init( Q4_GameAlloc, Q4_GameFree, Q4_GameMsize );
-		g_q4Trace = false;
+		// leave g_q4Trace enabled: the [Q4*] diagnostics also cover map load,
+		// gui fixup and the sound/emitter paths that run well after game->Init
 		common->Printf( "[Quake4] <<< game->Init() RETURNED -- continuing engine init toward the main menu (M3)\n" );
 	}
 }

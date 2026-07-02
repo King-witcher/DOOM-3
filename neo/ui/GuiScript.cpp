@@ -603,10 +603,13 @@ void idGuiScript::FixupParms(idWindow *win) {
 		idWinStr *str = dynamic_cast<idWinStr*>(parms[0].var);
 		assert(str);
 
-		// 
+		{ extern bool g_q4Trace; if ( g_q4Trace && str == NULL ) common->Printf( "[Q4gui2] transition parms[0] is NOT an idWinStr (win %s)\n", win->GetName() ); }
+
+		//
 		drawWin_t *destowner;
 		idWinVar *dest = win->GetWinVarByName(*str, true, &destowner );
-		// 
+		{ extern bool g_q4Trace; if ( g_q4Trace && !dest && str ) common->Printf( "[Q4gui2] transition dest '%s' unresolved (win %s)\n", str->c_str(), win->GetName() ); }
+		//
 
 		if (dest) {
 			delete parms[0].var;

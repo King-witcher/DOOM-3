@@ -189,7 +189,7 @@ idAsyncNetwork::WriteUserCmdDelta
 void idAsyncNetwork::WriteUserCmdDelta( idBitMsg &msg, const usercmd_t &cmd, const usercmd_t *base ) {
 	if ( base ) {
 		msg.WriteDeltaLongCounter( base->gameTime, cmd.gameTime );
-		msg.WriteDeltaByte( base->buttons, cmd.buttons );
+		msg.WriteDeltaShort( base->buttons, cmd.buttons );	// Quake4: buttons is a short
 		msg.WriteDeltaShort( base->mx, cmd.mx );
 		msg.WriteDeltaShort( base->my, cmd.my );
 		msg.WriteDeltaChar( base->forwardmove, cmd.forwardmove );
@@ -202,7 +202,7 @@ void idAsyncNetwork::WriteUserCmdDelta( idBitMsg &msg, const usercmd_t &cmd, con
 	}
 
 	msg.WriteLong( cmd.gameTime );
-	msg.WriteByte( cmd.buttons );
+	msg.WriteShort( cmd.buttons );	// Quake4: buttons is a short
     msg.WriteShort( cmd.mx );
 	msg.WriteShort( cmd.my );
 	msg.WriteChar( cmd.forwardmove );
@@ -223,7 +223,7 @@ void idAsyncNetwork::ReadUserCmdDelta( const idBitMsg &msg, usercmd_t &cmd, cons
 
 	if ( base ) {
 		cmd.gameTime = msg.ReadDeltaLongCounter( base->gameTime );
-		cmd.buttons = msg.ReadDeltaByte( base->buttons );
+		cmd.buttons = msg.ReadDeltaShort( base->buttons );	// Quake4: buttons is a short
 		cmd.mx = msg.ReadDeltaShort( base->mx );
 		cmd.my = msg.ReadDeltaShort( base->my );
 		cmd.forwardmove = msg.ReadDeltaChar( base->forwardmove );
@@ -236,7 +236,7 @@ void idAsyncNetwork::ReadUserCmdDelta( const idBitMsg &msg, usercmd_t &cmd, cons
 	}
 
 	cmd.gameTime = msg.ReadLong();
-    cmd.buttons = msg.ReadByte();
+    cmd.buttons = msg.ReadShort();	// Quake4: buttons is a short
     cmd.mx = msg.ReadShort();
 	cmd.my = msg.ReadShort();
 	cmd.forwardmove = msg.ReadChar();

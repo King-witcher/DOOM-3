@@ -40,12 +40,17 @@ If you have questions concerning this license or the applicable additional terms
 const int USERCMD_HZ			= 60;			// 60 frames per second
 const int USERCMD_MSEC			= 1000 / USERCMD_HZ;
 
-// usercmd_t->button bits
+// usercmd_t->button bits (Quake4 v37 assignments; buttons is 2 bytes wide)
 const int BUTTON_ATTACK			= BIT(0);
 const int BUTTON_RUN			= BIT(1);
 const int BUTTON_ZOOM			= BIT(2);
 const int BUTTON_SCORES			= BIT(3);
 const int BUTTON_MLOOK			= BIT(4);
+const int BUTTON_INGAMESTATS	= BIT(5);
+const int BUTTON_VOICECHAT		= BIT(6);
+const int BUTTON_TOURNEY		= BIT(7);
+const int BUTTON_STRAFE			= BIT(8);
+// legacy D3 aliases
 const int BUTTON_5				= BIT(5);
 const int BUTTON_6				= BIT(6);
 const int BUTTON_7				= BIT(7);
@@ -86,12 +91,16 @@ const int IMPULSE_40			= 40;			// use vehicle
 // usercmd_t->flags
 const int UCF_IMPULSE_SEQUENCE	= 0x0001;		// toggled every time an impulse command is sent
 
+// NOTE: binary layout is ABI-shared with the retail Quake4 gamex86.dll (v37): the engine
+// hands usercmd_t arrays straight into the game DLL, so field order/sizes must match the
+// Q4 SDK exactly (realTime inserted after gameTime, buttons widened byte -> short).
 class usercmd_t {
 public:
 	int			gameFrame;						// frame number
 	int			gameTime;						// game time
+	int			realTime;						// real game time (Quake4)
 	int			duplicateCount;					// duplication count for networking
-	byte		buttons;						// buttons
+	short		buttons;						// buttons (Quake4: expanded to 2 bytes)
 	signed char	forwardmove;					// forward/backward movement
 	signed char	rightmove;						// left/right movement
 	signed char	upmove;							// up/down movement

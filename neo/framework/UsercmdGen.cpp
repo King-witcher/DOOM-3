@@ -40,6 +40,7 @@ void usercmd_t::ByteSwap( void ) {
 	angles[0] = LittleShort( angles[0] );
 	angles[1] = LittleShort( angles[1] );
 	angles[2] = LittleShort( angles[2] );
+	buttons = LittleShort( buttons );	// Quake4: buttons is a short now
 	sequence = LittleLong( sequence );
 }
 
@@ -746,6 +747,7 @@ inits the current command for this frame
 */
 void idUsercmdGenLocal::InitCurrent( void ) {
 	memset( &cmd, 0, sizeof( cmd ) );
+	cmd.realTime = Sys_Milliseconds();	// Quake4 v37 field
 	cmd.flags = flags;
 	cmd.impulse = impulse;
 	cmd.buttons |= ( in_alwaysRun.GetBool() && idAsyncNetwork::IsActive() ) ? BUTTON_RUN : 0;

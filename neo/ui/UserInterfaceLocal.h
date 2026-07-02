@@ -37,6 +37,7 @@ public:
 	virtual const char *		Name() const;
 	virtual const char *		Comment() const;
 	virtual bool				IsInteractive() const;
+	virtual void				SetInteractive( bool interactive );
 	virtual bool				InitFromFile( const char *qpath, bool rebuild = true, bool cache = true );
 	virtual const char *		HandleEvent( const sysEvent_t *event, int time, bool *updateVisuals );
 	virtual void				HandleNamedEvent( const char* namedEvent );
@@ -48,12 +49,21 @@ public:
 	virtual void				SetStateBool( const char *varName, const bool value );
 	virtual void				SetStateInt( const char *varName, const int value );
 	virtual void				SetStateFloat( const char *varName, const float value );
+	virtual void				SetStateVector( const char *varName, const idVec3& vector );
+	virtual void				SetStateVec4( const char *varName, const idVec4& vector );
+	virtual void				ClearState( void );
+	virtual void				DeleteState( const char *varName );
+	virtual idVec4				GetLightColor( void );
 
 	// Gets a gui state variable
 	virtual const char*			GetStateString( const char *varName, const char* defaultString = "" ) const;
 	virtual bool				GetStateBool( const char *varName, const char* defaultString = "0" ) const;
 	virtual int					GetStateInt( const char *varName, const char* defaultString = "0" ) const;
 	virtual float				GetStateFloat( const char *varName, const char* defaultString = "0" ) const;
+	virtual idVec3				GetStateVector( const char *varName, const char* defaultString = "0 0 0" ) const;
+	virtual idVec4				GetStateVec4( const char *varName, const char* defaultString = "0 0 0 0" ) const;
+
+	virtual bool				GetMaxTextIndex( const char *windowName, const char *text, wrapInfo_t& wrapInfo ) const;
 
 	virtual void				StateChanged( int time, bool redraw );
 	virtual const char *		Activate( bool activate, int time );
@@ -132,9 +142,13 @@ public:
 	virtual idUserInterface *	Alloc( void ) const;
 	virtual void				DeAlloc( idUserInterface *gui );
 	virtual idUserInterface *	FindGui( const char *qpath, bool autoLoad = false, bool needInteractive = false, bool forceUnique = false );
-	virtual idUserInterface *	FindDemoGui( const char *qpath );
+	virtual int					GuiIndex( idUserInterface *gui );
+	virtual idUserInterface *	FindGuiByIndex( int index );
+	virtual void				ClearGameGuis( void );
 	virtual	idListGUI *			AllocListGUI( void ) const;
 	virtual void				FreeListGUI( idListGUI *listgui );
+	virtual void				RunAlwaysThinkGUIs( int time );
+	virtual void				RegisterIcon( const char* code, const char* shader, int x = -1, int y = -1, int w = -1, int h = -1 );
 
 private:
 	idRectangle					screenRect;

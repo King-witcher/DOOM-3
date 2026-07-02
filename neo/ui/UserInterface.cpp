@@ -207,14 +207,25 @@ idUserInterface *idUserInterfaceManagerLocal::FindGui( const char *qpath, bool a
 	return NULL;
 }
 
-idUserInterface *idUserInterfaceManagerLocal::FindDemoGui( const char *qpath ) {
-	int c = demoGuis.Num();
-	for ( int i = 0; i < c; i++ ) {
-		if ( !idStr::Icmp( demoGuis[i]->GetSourceFile(), qpath ) ) {
-			return demoGuis[i];
+int idUserInterfaceManagerLocal::GuiIndex( idUserInterface *gui ) {
+	for ( int i = 0; i < guis.Num(); i++ ) {
+		if ( guis[i] == gui ) {
+			return i;
 		}
 	}
+	return -1;
+}
+
+idUserInterface *idUserInterfaceManagerLocal::FindGuiByIndex( int index ) {
+	if ( index >= 0 && index < guis.Num() ) {
+		return guis[index];
+	}
 	return NULL;
+}
+
+void idUserInterfaceManagerLocal::ClearGameGuis( void ) {
+	// Quake4 clears its in-game (non-menu) guis before a renderdemo; we keep no
+	// separate in-game gui pool to purge, so this is a no-op.
 }
 
 idListGUI *	idUserInterfaceManagerLocal::AllocListGUI( void ) const {
@@ -223,6 +234,14 @@ idListGUI *	idUserInterfaceManagerLocal::AllocListGUI( void ) const {
 
 void idUserInterfaceManagerLocal::FreeListGUI( idListGUI *listgui ) {
 	delete listgui;
+}
+
+void idUserInterfaceManagerLocal::RunAlwaysThinkGUIs( int time ) {
+	// Quake4 ticks guis flagged 'alwaysThink' here; not required for our path yet.
+}
+
+void idUserInterfaceManagerLocal::RegisterIcon( const char *code, const char *shader, int x, int y, int w, int h ) {
+	// Quake4 embedded-icon registration; unimplemented (icons simply won't render).
 }
 
 /*
@@ -412,6 +431,30 @@ void idUserInterfaceLocal::SetStateFloat( const char *varName, const float value
 	state.SetFloat( varName, value );
 }
 
+void idUserInterfaceLocal::SetInteractive( bool _interactive ) {
+	interactive = _interactive;
+}
+
+void idUserInterfaceLocal::SetStateVector( const char *varName, const idVec3& vector ) {
+	state.SetVector( varName, vector );
+}
+
+void idUserInterfaceLocal::SetStateVec4( const char *varName, const idVec4& vector ) {
+	state.SetVec4( varName, vector );
+}
+
+void idUserInterfaceLocal::ClearState( void ) {
+	state.Clear();
+}
+
+void idUserInterfaceLocal::DeleteState( const char *varName ) {
+	state.Delete( varName );
+}
+
+idVec4 idUserInterfaceLocal::GetLightColor( void ) {
+	return GetStateVec4( "guiColor", "1 1 1 1" );
+}
+
 const char* idUserInterfaceLocal::GetStateString( const char *varName, const char* defaultString ) const {
 	return state.GetString(varName, defaultString);
 }
@@ -426,6 +469,22 @@ int idUserInterfaceLocal::GetStateInt( const char *varName, const char* defaultS
 
 float idUserInterfaceLocal::GetStateFloat( const char *varName, const char* defaultString ) const {
 	return state.GetFloat(varName, defaultString);
+}
+
+idVec3 idUserInterfaceLocal::GetStateVector( const char *varName, const char* defaultString ) const {
+	return state.GetVector( varName, defaultString );
+}
+
+idVec4 idUserInterfaceLocal::GetStateVec4( const char *varName, const char* defaultString ) const {
+	return state.GetVec4( varName, defaultString );
+}
+
+bool idUserInterfaceLocal::GetMaxTextIndex( const char *windowName, const char *text, wrapInfo_t& wrapInfo ) const {
+	// Quake4 measures a window's font to find the wrap point; we have no per-window
+	// pixel-width query wired up here, so report "no wrap" (whole string fits).
+	wrapInfo.lastWhitespace = -1;
+	wrapInfo.maxIndex = -1;
+	return false;
 }
 
 void idUserInterfaceLocal::StateChanged( int _time, bool redraw ) {

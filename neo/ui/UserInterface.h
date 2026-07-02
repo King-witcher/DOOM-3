@@ -41,7 +41,20 @@ If you have questions concerning this license or the applicable additional terms
 class idFile;
 class idDemoFile;
 
+// Quake4 v37: idUserInterface::GetMaxTextIndex out-param.
+struct wrapInfo_t {
+	int lastWhitespace;
+	int maxIndex;
+	wrapInfo_t ( void ) {
+		lastWhitespace = -1;
+		maxIndex = -1;
+	}
+};
 
+// NOTE: this vtable is ABI-aligned to the retail Quake4 1.4.2 SDK (GAME_API_VERSION 37),
+// built with _XENON and _RV_MEM_SYS_SUPPORT UNDEFINED. The stock gamex86.dll calls
+// SetStateString@14, SetStateBool@15, StateChanged@30, etc. by these exact slot indices.
+// Do NOT reorder or drop slots. See docs/quake4/interface-deltas.json (idUserInterface).
 class idUserInterface {
 public:
 	virtual						~idUserInterface() {};
@@ -54,6 +67,9 @@ public:
 
 								// Returns true if the gui is interactive.
 	virtual bool				IsInteractive() const = 0;
+
+								// Quake4 v37: changes the interactive state of the gui.
+	virtual void				SetInteractive( bool interactive ) = 0;
 
 	virtual bool				IsUniqued() const = 0;
 
@@ -85,12 +101,26 @@ public:
 	virtual void				SetStateBool( const char *varName, const bool value ) = 0;
 	virtual void				SetStateInt( const char *varName, const int value ) = 0;
 	virtual void				SetStateFloat( const char *varName, const float value ) = 0;
+								// Quake4 v37: vector state setters.
+	virtual void				SetStateVector( const char *varName, const idVec3& vector ) = 0;
+	virtual void				SetStateVec4( const char *varName, const idVec4& vector ) = 0;
+								// Quake4 v37: clear / delete state.
+	virtual void				ClearState( void ) = 0;
+	virtual void				DeleteState( const char *varName ) = 0;
+								// Quake4 v37: gui light color (for gui-on-light rendering).
+	virtual idVec4				GetLightColor( void ) = 0;
 
 								// Gets a gui state variable
 	virtual const char*			GetStateString( const char *varName, const char* defaultString = "" ) const = 0;
 	virtual bool				GetStateBool( const char *varName, const char* defaultString = "0" ) const  = 0;
 	virtual int					GetStateInt( const char *varName, const char* defaultString = "0" ) const = 0;
 	virtual float				GetStateFloat( const char *varName, const char* defaultString = "0" ) const = 0;
+								// Quake4 v37: vector state getters.
+	virtual idVec3				GetStateVector( const char *varName, const char* defaultString = "0 0 0" ) const = 0;
+	virtual idVec4				GetStateVec4( const char *varName, const char* defaultString = "0 0 0 0" ) const = 0;
+
+								// Quake4 v37: access the desktop window.
+	virtual class idWindow *	GetDesktop( void ) const = 0;
 
 								// The state has changed and the gui needs to update from the state idDict.
 	virtual void				StateChanged( int time, bool redraw = false ) = 0;
@@ -111,6 +141,9 @@ public:
 	virtual void				SetCursor( float x, float y ) = 0;
 	virtual float				CursorX() = 0;
 	virtual float				CursorY() = 0;
+
+								// Quake4 v37: text-wrapping query used by HUD widgets.
+	virtual bool				GetMaxTextIndex( const char *windowName, const char *text, wrapInfo_t& wrapInfo ) const = 0;
 };
 
 
@@ -147,14 +180,26 @@ public:
 								// Returns NULL if gui by that name does not exist.
 	virtual idUserInterface *	FindGui( const char *qpath, bool autoLoad = false, bool needUnique = false, bool forceUnique = false ) = 0;
 
-								// Returns NULL if gui by that name does not exist.
-	virtual idUserInterface *	FindDemoGui( const char *qpath ) = 0;
+								// Quake4 v37: index of a gui in the global list.
+	virtual int					GuiIndex( idUserInterface *gui ) = 0;
+
+								// Quake4 v37: gui at a given index (or NULL).
+	virtual idUserInterface *	FindGuiByIndex( int index ) = 0;
+
+								// Quake4 v37: clears the in-game guis before loading a renderdemo.
+	virtual void				ClearGameGuis( void ) = 0;
 
 								// Allocates a new GUI list handler
 	virtual	idListGUI *			AllocListGUI( void ) const = 0;
 
 								// De-allocates a list gui
 	virtual void				FreeListGUI( idListGUI *listgui ) = 0;
+
+								// Quake4 v37: run guis flagged to always think.
+	virtual void				RunAlwaysThinkGUIs( int time ) = 0;
+
+								// Quake4 v37: register an embedded icon shader.
+	virtual void				RegisterIcon( const char* code, const char* shader, int x = -1, int y = -1, int w = -1, int h = -1 ) = 0;
 };
 
 extern idUserInterfaceManager *	uiManager;

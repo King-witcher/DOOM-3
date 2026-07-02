@@ -231,6 +231,8 @@ typedef struct CrtMemBlockHeader
 } CrtMemBlockHeader;
 
 #include <crtdbg.h>
+#include <intrin.h>
+#include <stdlib.h>
 
 /*
 ==================
@@ -1448,6 +1450,39 @@ static void Q4_LogFault( EXCEPTION_POINTERS *ep ) {
 	OutputDebugStringA( "[Q4CRASH] logged fault (see .vscode/q4-crash.txt)\n" );
 }
 
+// abort()-class failures (pure virtual call, CRT invalid parameter, /GS) bypass the
+// vectored exception handler via __fastfail, so Q4_VEH never sees them. Hook the CRT
+// handlers to dump a pseudo-callstack from the current frame BEFORE the CRT aborts.
+static void Q4_LogAbortSite( const char *why ) {
+	FILE *f = fopen( "C:\\code\\id\\DOOM-3\\.vscode\\q4-crash.txt", "a" );
+	if ( !f ) return;
+	fprintf( f, "ABORT (%s)\n", why );
+	char sym[320];
+	void **sp = (void **)_AddressOfReturnAddress();
+	int logged = 0;
+	for ( int i = 0; i < 2048 && logged < 48; i++ ) {
+		if ( IsBadReadPtr( sp + i, sizeof( void * ) ) ) break;
+		if ( Q4_IsExecAddr( sp[i] ) ) {
+			Q4_Resolve( sp[i], sym, sizeof( sym ) );
+			if ( strstr( sym, "DOOM3.exe" ) || strstr( sym, "gamex86" ) ) {
+				fprintf( f, "  stk[%04d]=%s\n", i, sym );
+				logged++;
+			}
+		}
+	}
+	fprintf( f, "----\n" );
+	fclose( f );
+	OutputDebugStringA( "[Q4CRASH] logged abort (see .vscode/q4-crash.txt)\n" );
+}
+
+static void __cdecl Q4_PureCallHandler( void ) {
+	Q4_LogAbortSite( "purecall" );
+}
+
+static void __cdecl Q4_InvalidParamHandler( const wchar_t *expr, const wchar_t *func, const wchar_t *file, unsigned int line, uintptr_t reserved ) {
+	Q4_LogAbortSite( "invalid_parameter" );
+}
+
 static LONG WINAPI Q4_VEH( EXCEPTION_POINTERS *ep ) {
 	DWORD code = ep->ExceptionRecord->ExceptionCode;
 	bool isFP = ( code >= 0xC0000090 && code <= 0xC0000095 );
@@ -1474,6 +1509,8 @@ WinMain
 int WINAPI WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow ) {
 
 	AddVectoredExceptionHandler( 1, Q4_VEH );
+	_set_purecall_handler( Q4_PureCallHandler );
+	_set_invalid_parameter_handler( Q4_InvalidParamHandler );
 
 	const HCURSOR hcurSave = ::SetCursor( LoadCursor( 0, IDC_WAIT ) );
 

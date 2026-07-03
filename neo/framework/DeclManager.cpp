@@ -1072,6 +1072,10 @@ class rvDeclLipSync  : public rvDeclStub { };
 class rvDeclPlayback : public rvDeclStub { };
 class rvDeclEffect   : public rvDeclStub { };
 
+// RAVEN/Q4: rvDeclPlayerModel is a REAL decl (neo/framework/DeclPlayerModel.h) --
+// the MP game dereferences its data members directly on every player spawn
+#include "DeclPlayerModel.h"
+
 /*
 ===================
 idDeclManagerLocal::Init
@@ -1113,6 +1117,9 @@ void idDeclManagerLocal::Init( void ) {
 	RegisterDeclType( "lipSync",			DECL_LIPSYNC,		idDeclAllocator<rvDeclLipSync> );
 	RegisterDeclType( "playback",			DECL_PLAYBACK,		idDeclAllocator<rvDeclPlayback> );
 	RegisterDeclType( "effect",				DECL_EFFECT,		idDeclAllocator<rvDeclEffect> );
+	// RAVEN/Q4: registered by the retail engine; the MP game queries it on every
+	// player spawn (idPlayer::UpdateModelSetup) and reads the fields directly
+	RegisterDeclType( "playerModel",		DECL_PLAYER_MODEL,	idDeclAllocator<rvDeclPlayerModel> );
 
 	// RAVEN: load Quake 4 guide (material template) files before any .mtr that
 	// instantiates them via the "guide" directive.
@@ -1121,6 +1128,10 @@ void idDeclManagerLocal::Init( void ) {
 	RegisterDeclFolder( "materials",		".mtr",				DECL_MATERIAL );
 	RegisterDeclFolder( "skins",			".skin",			DECL_SKIN );
 	RegisterDeclFolder( "sound",			".sndshd",			DECL_SOUND );
+	// RAVEN/Q4: the retail BSE effects system registers the effects folder; the
+	// decls must be file-backed (not implicit) or the MP server refuses to write
+	// them to the network stream ("WriteDecl: ... is implicit")
+	RegisterDeclFolder( "effects",			".fx",				DECL_EFFECT );
 
 	// add console commands
 	cmdSystem->AddCommand( "listDecls", ListDecls_f, CMD_FL_SYSTEM, "lists all decls" );

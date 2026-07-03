@@ -207,6 +207,7 @@
     <ClInclude Include="framework\DeclEntityDef.h" />
     <ClInclude Include="framework\DeclFX.h" />
     <ClInclude Include="framework\DeclManager.h" />
+    <ClInclude Include="framework\DeclPlayerModel.h" />
     <ClInclude Include="framework\DeclParticle.h" />
     <ClInclude Include="framework\DeclPDA.h" />
     <ClInclude Include="framework\DeclSkin.h" />
@@ -1221,6 +1222,7 @@
     <ClCompile Include="framework\DeclFX.cpp" />
     <ClCompile Include="framework\DeclManager.cpp" />
     <ClCompile Include="framework\DeclParticle.cpp" />
+    <ClCompile Include="framework\DeclPlayerModel.cpp" />
     <ClCompile Include="framework\DeclPDA.cpp" />
     <ClCompile Include="framework\DeclSkin.cpp" />
     <ClCompile Include="framework\DeclTable.cpp" />

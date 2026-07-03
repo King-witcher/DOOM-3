@@ -1650,7 +1650,8 @@ void idSoundWorldLocal::AddChannelContribution( idSoundEmitterLocal *sound, idSo
 	}
 
 	// global volume scale
-	volume *= soundSystemLocal.dB2Scale( idSoundSystemLocal::s_volume.GetFloat() );
+	// RAVEN/Q4: s_volume is a linear 0..2 scale, not dB
+	volume *= idMath::ClampFloat( 0.0f, 2.0f, idSoundSystemLocal::s_volume.GetFloat() );
 
 
 	// volume fading

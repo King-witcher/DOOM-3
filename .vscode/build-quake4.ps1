@@ -44,13 +44,14 @@ foreach ( $p in $projects ) {
     if ( $LASTEXITCODE -ne 0 ) { throw "build failed: $p" }
 }
 
-# Deploy Raven's retail Quake 4 game DLL beside the engine.
+# The retail game DLL is NOT deployed beside the engine: idFileSystem::FindDLL
+# checks the exe dir first, which would pin the SP game (q4base) even when
+# fs_game q4mp should load Raven's multiplayer game. Let the filesystem extract
+# gamex86.dll from the active game dir's paks (game000/game300.pk4), exactly as
+# retail Quake 4 does. Remove any stale exe-dir copy from older builds.
 $outDir = Join-Path $Root "build\Win32\$Config"
-$retail = Join-Path $Q4Dir "q4base\gamex86.dll"
-if ( -not (Test-Path $retail) ) {
-    throw "retail Quake 4 gamex86.dll not found at '$retail' -- pass -Q4Dir <Quake 4 install root>"
-}
-Copy-Item $retail (Join-Path $outDir "gamex86.dll") -Force
+$stale = Join-Path $outDir "gamex86.dll"
+if ( Test-Path $stale ) { Remove-Item $stale -Force }
 
 # Deploy the stock DOOM3 ARB programs as loose files in the savepath: Quake 4's
 # paks carry Raven-modified glprogs (their interaction.vfp renders black on this

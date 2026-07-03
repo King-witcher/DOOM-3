@@ -796,6 +796,13 @@ public:
 
 	idSoundWorldLocal *		currentSoundWorld;	// the one to mix each async tic
 
+	// RAVEN/Q4: the game addresses sound worlds by fixed id (SOUNDWORLD_GAME=1,
+	// SOUNDWORLD_MENU=2, ...) regardless of which one is currently playing.
+	// AllocSoundWorld registers worlds here in creation order (game first).
+	static const int		SOUNDWORLD_MAX_WORLDS = 4;
+	idSoundWorldLocal *		soundWorlds[SOUNDWORLD_MAX_WORLDS];
+	idSoundWorldLocal *		WorldFromId( int worldId );
+
 	int						olddwCurrentWritePos;	// statistics
 	int						buffers;				// statistics
 	int						CurrentSoundTime;		// set by the async thread and only used by the main thread

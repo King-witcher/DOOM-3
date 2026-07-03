@@ -317,6 +317,7 @@ void idSoundSystemLocal::Init() {
 	shutdown = false;
 
 	currentSoundWorld = NULL;
+	memset( soundWorlds, 0, sizeof( soundWorlds ) );
 	soundCache = NULL;
 
 	olddwCurrentWritePos = 0;
@@ -1067,7 +1068,31 @@ idSoundWorld *idSoundSystemLocal::AllocSoundWorld( idRenderWorld *rw ) {
 
 	local->Init( rw );
 
+	// RAVEN/Q4: register by fixed world id. The session allocates the game world
+	// first, then the menu world, matching SOUNDWORLD_GAME=1 / SOUNDWORLD_MENU=2.
+	for ( int i = 1; i < SOUNDWORLD_MAX_WORLDS; i++ ) {
+		if ( soundWorlds[i] == NULL ) {
+			soundWorlds[i] = local;
+			break;
+		}
+	}
+
 	return local;
+}
+
+/*
+===================
+idSoundSystemLocal::WorldFromId
+
+RAVEN/Q4: resolve a game-facing world id (SOUNDWORLD_*) to a world. id 0 / -1
+(NONE / ANY) and unregistered slots fall back to the currently playing world.
+===================
+*/
+idSoundWorldLocal *idSoundSystemLocal::WorldFromId( int worldId ) {
+	if ( worldId >= 1 && worldId < SOUNDWORLD_MAX_WORLDS && soundWorlds[worldId] ) {
+		return soundWorlds[worldId];
+	}
+	return currentSoundWorld;
 }
 
 /*
@@ -1540,8 +1565,9 @@ idSoundSystemLocal::StopAllSounds
 ===================
 */
 void idSoundSystemLocal::StopAllSounds( int worldId ) {
-	if ( currentSoundWorld ) {
-		currentSoundWorld->StopAllSounds();
+	idSoundWorldLocal *world = WorldFromId( worldId );
+	if ( world ) {
+		world->StopAllSounds();
 	}
 }
 
@@ -1562,14 +1588,13 @@ idSoundSystemLocal::AllocSoundEmitter
 ===================
 */
 int idSoundSystemLocal::AllocSoundEmitter( int worldId ) {
-	if ( currentSoundWorld ) {
-		idSoundEmitter *emitter = currentSoundWorld->AllocSoundEmitter();
+	idSoundWorldLocal *world = WorldFromId( worldId );
+	if ( world ) {
+		idSoundEmitter *emitter = world->AllocSoundEmitter();
 		if ( emitter ) {
-			{ extern bool g_q4Trace; if ( g_q4Trace ) common->Printf( "[Q4snd] AllocSoundEmitter(w%d) -> idx %d (world %p)\n", worldId, emitter->Index(), currentSoundWorld ); }
 			return emitter->Index();
 		}
 	}
-	{ extern bool g_q4Trace; if ( g_q4Trace ) common->Printf( "[Q4snd] AllocSoundEmitter(w%d) -> 0 (no world/emitter)\n", worldId ); }
 	return 0;
 }
 
@@ -1579,8 +1604,9 @@ idSoundSystemLocal::FreeSoundEmitter
 ===================
 */
 void idSoundSystemLocal::FreeSoundEmitter( int worldId, int handle, bool immediate ) {
-	if ( currentSoundWorld && handle > 0 ) {
-		idSoundEmitter *emitter = currentSoundWorld->EmitterForIndex( handle );
+	idSoundWorldLocal *world = WorldFromId( worldId );
+	if ( world && handle > 0 && handle < world->emitters.Num() ) {
+		idSoundEmitter *emitter = world->EmitterForIndex( handle );
 		if ( emitter ) {
 			emitter->Free( immediate );
 		}
@@ -1593,16 +1619,15 @@ idSoundSystemLocal::EmitterForIndex
 ===================
 */
 idSoundEmitter *idSoundSystemLocal::EmitterForIndex( int worldId, int index ) {
-	if ( currentSoundWorld ) {
+	idSoundWorldLocal *world = WorldFromId( worldId );
+	if ( world ) {
 		// the D3 world accessor only rejects 0 and >=Num(); a negative or otherwise
-		// out-of-range handle from the game would read garbage off the list, so
-		// validate here and report instead of handing the game a wild pointer
-		if ( index < 0 || index >= currentSoundWorld->emitters.Num() ) {
-			extern bool g_q4Trace;
-			if ( g_q4Trace ) common->Printf( "[Q4snd] EmitterForIndex(w%d, %d) OUT OF RANGE (num=%d world=%p)\n", worldId, index, currentSoundWorld->emitters.Num(), currentSoundWorld );
+		// out-of-range handle would read garbage off the list, so validate here
+		// instead of handing the game a wild pointer
+		if ( index < 0 || index >= world->emitters.Num() ) {
 			return NULL;
 		}
-		return currentSoundWorld->EmitterForIndex( index );
+		return world->EmitterForIndex( index );
 	}
 	return NULL;
 }
@@ -1625,8 +1650,9 @@ idSoundSystemLocal::CurrentShakeAmplitudeForPosition
 ===================
 */
 float idSoundSystemLocal::CurrentShakeAmplitudeForPosition( int worldId, const int time, const idVec3 &listenerPosition ) {
-	if ( currentSoundWorld ) {
-		return currentSoundWorld->CurrentShakeAmplitudeForPosition( time, listenerPosition );
+	idSoundWorldLocal *world = WorldFromId( worldId );
+	if ( world ) {
+		return world->CurrentShakeAmplitudeForPosition( time, listenerPosition );
 	}
 	return 0.0f;
 }
@@ -1657,8 +1683,9 @@ idSoundSystemLocal::FadeSoundClasses
 ===================
 */
 void idSoundSystemLocal::FadeSoundClasses( int worldId, const int soundClass, float to, const float over ) {
-	if ( currentSoundWorld ) {
-		currentSoundWorld->FadeSoundClasses( soundClass, to, over );
+	idSoundWorldLocal *world = WorldFromId( worldId );
+	if ( world ) {
+		world->FadeSoundClasses( soundClass, to, over );
 	}
 }
 
@@ -1668,8 +1695,9 @@ idSoundSystemLocal::PlayShaderDirectly
 ===================
 */
 void idSoundSystemLocal::PlayShaderDirectly( int worldId, const char *name, int channel ) {
-	if ( currentSoundWorld ) {
-		currentSoundWorld->PlayShaderDirectly( name, channel );
+	idSoundWorldLocal *world = WorldFromId( worldId );
+	if ( world ) {
+		world->PlayShaderDirectly( name, channel );
 	}
 }
 

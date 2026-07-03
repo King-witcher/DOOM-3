@@ -88,6 +88,13 @@ idSoundWorldLocal::~idSoundWorldLocal
 */
 idSoundWorldLocal::~idSoundWorldLocal() {
 	Shutdown();
+
+	// RAVEN/Q4: deregister from the fixed world-id table so no dangling slot survives
+	for ( int i = 0; i < idSoundSystemLocal::SOUNDWORLD_MAX_WORLDS; i++ ) {
+		if ( soundSystemLocal.soundWorlds[i] == this ) {
+			soundSystemLocal.soundWorlds[i] = NULL;
+		}
+	}
 }
 
 /*

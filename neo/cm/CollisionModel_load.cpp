@@ -3805,27 +3805,52 @@ int idCollisionModelManagerLocal::CompoundTrmFromModel( const char *mapName, con
 	return 0;
 }
 
+// NOTE: a NULL model is a legitimate Quake4 input for the trace wrappers below --
+// idClipModel::GetCollisionModel() returns NULL for render-model-backed clip
+// models -- and means "nothing to collide with" (retail returns the empty result
+// silently; Doom3's handle-based cores would print "invalid model handle").
+
 void idCollisionModelManagerLocal::Translation( trace_t *results, const idVec3 &start, const idVec3 &end,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	if ( model == NULL ) {
+		memset( (void *)results, 0, sizeof( *results ) );
+		results->fraction = 1.0f;
+		results->endpos = end;
+		results->endAxis = trmAxis;
+		return;
+	}
 	Translation_h( results, start, end, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
 }
 
 void idCollisionModelManagerLocal::Rotation( trace_t *results, const idVec3 &start, const idRotation &rotation,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	if ( model == NULL ) {
+		memset( (void *)results, 0, sizeof( *results ) );
+		results->fraction = 1.0f;
+		results->endpos = start;
+		results->endAxis = trmAxis;
+		return;
+	}
 	Rotation_h( results, start, rotation, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
 }
 
 int idCollisionModelManagerLocal::Contents( const idVec3 &start,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	if ( model == NULL ) {
+		return 0;
+	}
 	return Contents_h( start, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
 }
 
 int idCollisionModelManagerLocal::Contacts( contactInfo_t *contacts, const int maxContacts, const idVec3 &start, const idVec6 &dir, const float depth,
 								const idTraceModel *trm, const idMat3 &trmAxis, int contentMask,
 								idCollisionModel *model, const idVec3 &modelOrigin, const idMat3 &modelAxis ) {
+	if ( model == NULL ) {
+		return 0;
+	}
 	return Contacts_h( contacts, maxContacts, start, dir, depth, trm, trmAxis, contentMask, ModelToHandle( model ), modelOrigin, modelAxis );
 }
 

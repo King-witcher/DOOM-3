@@ -717,7 +717,8 @@ void idUsercmdGenLocal::CmdButtons( void ) {
 	}
 
 	// check the run button
-	if ( toggled_run.on ^ ( in_alwaysRun.GetBool() && idAsyncNetwork::IsActive() ) ) {
+	// Quake4: in_alwaysRun applies locally too (Doom3 gated it to async-network games)
+	if ( toggled_run.on ^ in_alwaysRun.GetBool() ) {
 		cmd.buttons |= BUTTON_RUN;
 	}
 
@@ -772,7 +773,7 @@ void idUsercmdGenLocal::MakeCurrent( void ) {
 	if ( !Inhibited() ) {
 		// update toggled key states
 		toggled_crouch.SetKeyState( ButtonState( UB_DOWN ), in_toggleCrouch.GetBool() );
-		toggled_run.SetKeyState( ButtonState( UB_SPEED ), in_toggleRun.GetBool() && idAsyncNetwork::IsActive() );
+		toggled_run.SetKeyState( ButtonState( UB_SPEED ), in_toggleRun.GetBool() );
 		toggled_zoom.SetKeyState( ButtonState( UB_ZOOM ), in_toggleZoom.GetBool() );
 
 		// keyboard angle adjustment

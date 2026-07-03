@@ -60,4 +60,4 @@ $glDst = Join-Path $Root "run\q4save\q4base\glprogs"
 New-Item -ItemType Directory -Force $glDst | Out-Null
 Copy-Item (Join-Path $Root "base\glprogs\*") $glDst -Force
 
-Write-Host "Quake 4 build complete -> $outDir\DOOM3.exe ; retail gamex86.dll deployed (GAME_API_VERSION 37)"
+Write-Host "Quake 4 build complete -> $outDir\DOOM3.exe ; game DLL loads from fs_game paks (GAME_API_VERSION 37)"
